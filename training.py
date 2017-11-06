@@ -20,7 +20,7 @@ height, width, nchannels = 129, 200, 1
 padding = 'same'
 
 filters_1 = 16
-kernel_size_1 = (129,20)
+kernel_size_1 = (20,20)
 pool_size_1 = (2,2)
 
 x_pl = tf.placeholder(tf.float32, [None, height, width, nchannels], name='xPlaceholder')
@@ -53,20 +53,19 @@ with tf.variable_scope('output_layer'):
 
 print('Model consits of ', utils.num_params(), 'trainable parameters.')
 
-## Launch TensorBoard, and visualize the TF graph
 gpu_opts = tf.GPUOptions(per_process_gpu_memory_fraction=0.45)
+
+"""## Launch TensorBoard, and visualize the TF graph
 
 with tf.Session(config=tf.ConfigProto(gpu_options=gpu_opts)) as sess:
     tmp_def = utils.rename_nodes(sess.graph_def, lambda s:"/".join(s.split('_',1)))
-    utils.show_graph(tmp_def)
+    utils.show_graph(tmp_def)"""
 
 
 with tf.variable_scope('loss'):
     # computing cross entropy per sample
-    cross_entropy = -tf.reduce_sum(y_pl * tf.log(y+1e-8), reduction_indices=[1])
+    mean_square_error = tf.reduce_mean((y_pl - y) ** 2)
 
-    # averaging over samples
-    cross_entropy = tf.reduce_mean(cross_entropy)
 
 
 with tf.variable_scope('training'):
@@ -74,22 +73,15 @@ with tf.variable_scope('training'):
     optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
 
     # applying the gradients
-    train_op = optimizer.minimize(cross_entropy)
-
-
-with tf.variable_scope('performance'):
-    # making a one-hot encoded vector of correct (1) and incorrect (0) predictions
-    correct_prediction = tf.equal(tf.argmax(y, axis=1), tf.argmax(y_pl, axis=1))
-
-    # averaging the one-hot encoded vector
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    train_op = optimizer.minimize(mean_square_error)
 
 
 #Create the LibriSpeech mixer
 mixer = LibriSpeechMixer()
+validation_mixer = LibriSpeechMixer(False)
 
-#Test the forward pass
-x_batch, y_batch = mixer.get_batch()
+"""#Test the forward pass
+x_batch, y_batch = mixer.get_batch(2)
 
 with tf.Session(config=tf.ConfigProto(gpu_options=gpu_opts)) as sess:
 # with tf.Session() as sess:
@@ -98,21 +90,19 @@ with tf.Session(config=tf.ConfigProto(gpu_options=gpu_opts)) as sess:
 
 assert y_pred.shape == y_batch.shape, "ERROR the output shape is not as expected!"         + " Output shape should be " + str(y.shape) + ' but was ' + str(y_pred.shape)
 
-print('Forward pass successful!')
+print('Forward pass successful!')"""
 
 
 # ## Training
 
-# In[ ]:
-
 #Training Loop
-batch_size = 100
+batch_size = 2
 max_epochs = 10
 
 
-valid_loss, valid_accuracy = [], []
-train_loss, train_accuracy = [], []
-test_loss, test_accuracy = [], []
+valid_loss = []
+train_loss = []
+test_loss = []
 
 
 with tf.Session() as sess:
@@ -120,122 +110,43 @@ with tf.Session() as sess:
     print('Begin training loop')
 
     try:
-        while mnist_data.train.epochs_completed < max_epochs:
-            _train_loss, _train_accuracy = [], []
+        while mixer.epochs_completed < max_epochs:
+            _train_loss = []
 
             ## Run train op
-            x_batch, y_batch = mnist_data.train.next_batch(batch_size)
-            fetches_train = [train_op, cross_entropy, accuracy]
+            x_batch, y_batch = mixer.get_batch(batch_size)
+            fetches_train = [train_op, mean_square_error]
             feed_dict_train = {x_pl: x_batch, y_pl: y_batch}
-            _, _loss, _acc = sess.run(fetches_train, feed_dict_train)
+            _, _loss = sess.run(fetches_train, feed_dict_train)
 
             _train_loss.append(_loss)
-            _train_accuracy.append(_acc)
 
 
-            ## Compute validation loss and accuracy
-            if mnist_data.train.epochs_completed % 1 == 0                     and mnist_data.train._index_in_epoch <= batch_size:
+            ## Compute validation loss
+            if mixer.index_in_epoch <= batch_size:
+                _valid_loss = []
                 train_loss.append(np.mean(_train_loss))
-                train_accuracy.append(np.mean(_train_accuracy))
 
-                fetches_valid = [cross_entropy, accuracy]
+                fetches_valid = [mean_square_error]
 
-                feed_dict_valid = {x_pl: mnist_data.validation.images, y_pl: mnist_data.validation.labels}
-                _loss, _acc = sess.run(fetches_valid, feed_dict_valid)
+                while validation_mixer.epochs_completed <= mixer.epochs_completed:
+                    x_valid, y_valid = validation_mixer.get_batch(batch_size)
+                    feed_dict_valid = {x_pl: x_valid, y_pl: y_valid}
+                    _loss = sess.run(fetches_valid, feed_dict_valid)
 
-                valid_loss.append(_loss)
-                valid_accuracy.append(_acc)
-                print("Epoch {} : Train Loss {:6.3f}, Train acc {:6.3f},  Valid loss {:6.3f},  Valid acc {:6.3f}".format(
-                    mnist_data.train.epochs_completed, train_loss[-1], train_accuracy[-1], valid_loss[-1], valid_accuracy[-1]))
+                    _valid_loss.append(_loss)
 
+                valid_loss.append(np.mean(_valid_loss))
 
-        test_epoch = mnist_data.test.epochs_completed
-        while mnist_data.test.epochs_completed == test_epoch:
-            x_batch, y_batch = mnist_data.test.next_batch(batch_size)
-            feed_dict_test = {x_pl: x_batch, y_pl: y_batch}
-            _loss, _acc = sess.run(fetches_valid, feed_dict_test)
-            test_loss.append(_loss)
-            test_accuracy.append(_acc)
-        print('Test Loss {:6.3f}, Test acc {:6.3f}'.format(
-                    np.mean(test_loss), np.mean(test_accuracy)))
+                print("Epoch {} : Train Loss {:6.3f}, Valid loss {:6.3f}".format(
+                    mixer.epochs_completed, train_loss[-1], valid_loss[-1]))
 
 
     except KeyboardInterrupt:
         pass
 
-
-# In[ ]:
-
 epoch = np.arange(len(train_loss))
 plt.figure()
-plt.plot(epoch, train_accuracy,'r', epoch, valid_accuracy,'b')
-plt.legend(['Train Acc','Val Acc'], loc=4)
-plt.xlabel('Epochs'), plt.ylabel('Acc'), plt.ylim([0.75,1.03])
-
-
-# # Assignments
-
-# #### <span style="color:red"> EXE 1.1 </span> Manual calculations
-#
-# ![](images/conv_exe.png)
-#
-#
-#
-# 1. Manually convolve the input, and compute the convolved features. No padding and no strieds.
-# 1. Perform `2x2` max pooling on the convolved features. Stride of 2.
-#
-# ___
-#
-# <span style="color:blue"> Answer: </span>
-#
-#
-#
-#
-
-#
-# #### <span style="color:red"> EXE 1.2 </span> Reducing the resolution
-# One of the important features of convolutional networks are their ability to reduce the spatial resolution, while retaining the important features.
-# Effectively this gives a local translational invariance and reduces the computation.
-# This is most often done with **maxpooling** or by using strides.
-#
-# 1. Using only convolutional layers and pooling operations reduce the feature map size to `1x1xF`.
-#     * The number of feature maps, `F`, is up to you.
-#
-# ___
-#
-# <span style="color:blue"> Write down what you did: </span>
-#
-# ```
-# Paste your code here
-# ```
-#
-#
-# ```
-# Paste the trace of the tensors shape as it is propagated through the network here
-# ```
-#
-
-# #### <span style="color:red"> EXE 1.3 </span> Play around with the network.
-# The MNIST dataset is so easy to solve with convolutional networks that it isn't interesting to spend to much time on maximizing performance.
-# A more interesting question is *how few parameters can you solve it with?*
-#
-# 1. Try and minimize the number of parameters, while keeping validation accuracy about 95%. Try changing the
-#
-#     * Number of layers
-#     * Number of filters
-#     * Kernel size
-#     * Pooling size
-# 1. Once happy take note of the performance, number of parameters (printed automatically), and describe the network below.
-# ___
-#
-#
-# <span style="color:blue"> Answer: </span>
-#
-
-# #### <span style="color:red"> EXE 1.4 </span> Comparing dense and convolutional networks
-#
-# 1. Now create a densely connected network (the ones from lab 1), and see how good performance you can get with a similar number of parameters.
-# ___
-#
-# <span style="color:blue"> Describe your findings: </span>
-#
+plt.plot(epoch, train_loss,'r', epoch, valid_loss,'b')
+plt.legend(['Train Loss','Val Loss'], loc=4)
+plt.xlabel('Epochs'), plt.ylabel('Loss'), plt.ylim([0.75,1.03])
