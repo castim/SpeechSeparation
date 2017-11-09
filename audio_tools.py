@@ -1,4 +1,4 @@
-raise ValueError("DEPRECATED/FROZEN - see https://github.com/kastnerkyle/tools for the latest")
+#raise ValueError("DEPRECATED/FROZEN - see https://github.com/kastnerkyle/tools for the latest")
 
 # License: BSD 3-clause
 # Authors: Kyle Kastner
