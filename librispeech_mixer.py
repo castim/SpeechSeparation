@@ -67,7 +67,7 @@ class LibriSpeechMixer:
 
         self.female_audios = np.random.permutation(self.female_audios)
 
-        self.indices = range(0, 100)#min(len(self.male_audios), len(self.female_audios)))
+        self.indices = range(0, 10)#min(len(self.male_audios), len(self.female_audios)))
 
         #The list function performs a shallow copy
         self.indices_it = list(self.indices)
