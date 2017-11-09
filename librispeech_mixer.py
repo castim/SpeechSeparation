@@ -8,6 +8,7 @@ import soundfile as sf
 import matplotlib.pyplot as plt
 from itertools import cycle
 import random
+from memory_profiler import profile
 
 class LibriSpeechMixer:
 
@@ -27,7 +28,7 @@ class LibriSpeechMixer:
     spl_difference = 0
 
     #The length of the spectrogram we take
-    spec_length = 200
+    spec_length = 100
 
 
     # Difference in the speech signal levels in dB.
@@ -82,7 +83,7 @@ class LibriSpeechMixer:
 
         self.indices_it = iter(self.indices_it)
 
-
+    #@profile
     def next(self):
 
         try:
@@ -114,26 +115,13 @@ class LibriSpeechMixer:
 
         length = min(len(target1), len(target2))
 
-        Pxx_target1, freqs_target1, bins_target1, im_target1 = plt.specgram(target1[:length], Fs=samplerate)
-        plt.ylabel('Frequency [Hz]')
-        plt.xlabel('Time [sec]')
-        #plt.show()
-
-
-
-        Pxx_target2, freqs_target2, bins_target2, im_target2 = plt.specgram(target2[:length], Fs=samplerate)
-        plt.ylabel('Frequency [Hz]')
-        plt.xlabel('Time [sec]')
-        #plt.show()
+        freqs_target1, bins_target1, Pxx_target1 = spectrogram(target1[:length], fs=samplerate)
+        freqs_target2, bins_target2, Pxx_target2 = spectrogram(target2[:length], fs=samplerate)
 
         #output is in wav format
         samplerate, mixed = read(outFilePath)
 
-        Pxx_mixed, freqs_mixed, bins_mixed, im_mixed = plt.specgram(mixed[:length], Fs=samplerate)
-
-        """plt.ylabel('Frequency [Hz]')
-        plt.xlabel('Time [sec]')"""
-        #plt.show()
+        freqs_mixed, bins_mixed, Pxx_mixed = spectrogram(mixed[:length], fs=samplerate)
 
         return np.moveaxis(np.array([Pxx_mixed])[:,:,:self.spec_length], 0, -1), \
                             np.moveaxis(np.array([Pxx_target1, Pxx_target2])[:,:,:self.spec_length], 0, -1)

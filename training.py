@@ -13,10 +13,11 @@ import keras
 from keras.layers import Input, Dense, Conv2D, MaxPooling2D, Conv2DTranspose
 from tensorflow.contrib.layers import flatten # We use this flatten, as it works better than
                                               # the Keras 'Flatten' for some reason
+from memory_profiler import profile
 
 tf.reset_default_graph()
 
-height, width, nchannels = 129, 200, 1
+height, width, nchannels = 129, 100, 1
 padding = 'same'
 
 filters_1 = 16
@@ -78,6 +79,7 @@ with tf.variable_scope('training'):
 
 #Create the LibriSpeech mixer
 mixer = LibriSpeechMixer()
+width = mixer.spec_length
 validation_mixer = LibriSpeechMixer(False)
 
 """#Test the forward pass
@@ -97,53 +99,56 @@ print('Forward pass successful!')"""
 
 #Training Loop
 batch_size = 2
-max_epochs = 10
+max_epochs = 3
 
 
 valid_loss = []
 train_loss = []
 test_loss = []
 
+def trainingLoog():
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        print('Begin training loop')
 
-with tf.Session() as sess:
-    sess.run(tf.global_variables_initializer())
-    print('Begin training loop')
+        try:
 
-    try:
-        while mixer.epochs_completed < max_epochs:
-            _train_loss = []
+            while mixer.epochs_completed < max_epochs:
+                _train_loss = []
 
-            ## Run train op
-            x_batch, y_batch = mixer.get_batch(batch_size)
-            fetches_train = [train_op, mean_square_error]
-            feed_dict_train = {x_pl: x_batch, y_pl: y_batch}
-            _, _loss = sess.run(fetches_train, feed_dict_train)
+                ## Run train op
+                x_batch, y_batch = mixer.get_batch(batch_size)
+                fetches_train = [train_op, mean_square_error]
+                feed_dict_train = {x_pl: x_batch, y_pl: y_batch}
+                _, _loss = sess.run(fetches_train, feed_dict_train)
 
-            _train_loss.append(_loss)
+                _train_loss.append(_loss)
 
+                ## Compute validation loss
+                if mixer.index_in_epoch <= batch_size:
+                    _valid_loss = []
+                    train_loss.append(np.mean(_train_loss))
 
-            ## Compute validation loss
-            if mixer.index_in_epoch <= batch_size:
-                _valid_loss = []
-                train_loss.append(np.mean(_train_loss))
+                    fetches_valid = [mean_square_error]
 
-                fetches_valid = [mean_square_error]
+                    while validation_mixer.epochs_completed <= mixer.epochs_completed:
+                        x_valid, y_valid = validation_mixer.get_batch(batch_size)
+                        feed_dict_valid = {x_pl: x_valid, y_pl: y_valid}
+                        _loss = sess.run(fetches_valid, feed_dict_valid)
 
-                while validation_mixer.epochs_completed <= mixer.epochs_completed:
-                    x_valid, y_valid = validation_mixer.get_batch(batch_size)
-                    feed_dict_valid = {x_pl: x_valid, y_pl: y_valid}
-                    _loss = sess.run(fetches_valid, feed_dict_valid)
+                        _valid_loss.append(_loss)
 
-                    _valid_loss.append(_loss)
-
-                valid_loss.append(np.mean(_valid_loss))
-
-                print("Epoch {} : Train Loss {:6.3f}, Valid loss {:6.3f}".format(
-                    mixer.epochs_completed, train_loss[-1], valid_loss[-1]))
+                    valid_loss.append(np.mean(_valid_loss))
 
 
-    except KeyboardInterrupt:
-        pass
+                    print("Epoch {} : Train Loss {:6.3f}, Valid loss {:6.3f}".format(
+                        mixer.epochs_completed, train_loss[-1], valid_loss[-1]))
+
+
+        except KeyboardInterrupt:
+            pass
+
+trainingLoog();
 
 epoch = np.arange(len(train_loss))
 plt.figure()
