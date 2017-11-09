@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from itertools import cycle
 import random
 from memory_profiler import profile
-import pydub
+from pydub import AudioSegment
 
 class LibriSpeechMixer:
 
