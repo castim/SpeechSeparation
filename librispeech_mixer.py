@@ -106,12 +106,22 @@ class LibriSpeechMixer:
                         + os.path.splitext(basename(self.female_audios[i]))[0] + ".wav"
                         """
         outFilePath = os.path.join(self.output_dir, "temp.wav")
-        subprocess.call(["sox", "-m", self.male_audios[i], self.female_audios[i], outFilePath])
+        # subprocess.call(["sox", "-m", self.male_audios[i], self.female_audios[i], outFilePath])
 
-        #input is in flac
-        #(sample rate is always the same)
-        target1, samplerate = sf.read(self.male_audios[i])
-        target2, samplerate = sf.read(self.female_audios[i])
+        sound1 = AudioSegment.from_wav(self.male_audios[i])
+        target1 = sound1.get_array_of_samples()
+
+        sound2 = AudioSegment.from_wav(self.female_audios[i])
+        target2 = sound2.get_array_of_samples()
+
+        output = sound1.overlay(sound2, position=0)
+        # output.export(outFilePath, format="wav")
+        mixed = output.get_array_of_samples()
+
+        # input is in flac
+        # (sample rate is always the same)
+        # target1, samplerate = sf.read(self.male_audios[i])
+        # target2, samplerate = sf.read(self.female_audios[i])
 
         length = min(len(target1), len(target2))
 
