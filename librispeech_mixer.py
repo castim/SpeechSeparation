@@ -106,13 +106,13 @@ class LibriSpeechMixer:
         """outFileName = os.path.splitext(basename(self.male_audios[i]))[0] + "_" \
                         + os.path.splitext(basename(self.female_audios[i]))[0] + ".wav"
                         """
-        outFilePath = os.path.join(self.output_dir, "temp.wav")
+        #outFilePath = os.path.join(self.output_dir, "temp.wav")
         # subprocess.call(["sox", "-m", self.male_audios[i], self.female_audios[i], outFilePath])
 
-        sound1 = AudioSegment.from_wav(self.male_audios[i])
+        sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
         target1 = np.array(sound1.get_array_of_samples())
 
-        sound2 = AudioSegment.from_wav(self.female_audios[i])
+        sound2 = AudioSegment.from_file(self.female_audios[i],format='flac')
         target2 = np.array(sound2.get_array_of_samples())
 
         output = sound1.overlay(sound2, position=0)
