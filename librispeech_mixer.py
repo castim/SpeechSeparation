@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from itertools import cycle
 import random
 from memory_profiler import profile
+import pydub
 
 class LibriSpeechMixer:
 
@@ -109,14 +110,14 @@ class LibriSpeechMixer:
         # subprocess.call(["sox", "-m", self.male_audios[i], self.female_audios[i], outFilePath])
 
         sound1 = AudioSegment.from_wav(self.male_audios[i])
-        target1 = sound1.get_array_of_samples()
+        target1 = np.array(sound1.get_array_of_samples())
 
         sound2 = AudioSegment.from_wav(self.female_audios[i])
-        target2 = sound2.get_array_of_samples()
+        target2 = np.array(sound2.get_array_of_samples())
 
         output = sound1.overlay(sound2, position=0)
         # output.export(outFilePath, format="wav")
-        mixed = output.get_array_of_samples()
+        mixed = np.array(output.get_array_of_samples())
 
         # input is in flac
         # (sample rate is always the same)
@@ -125,13 +126,13 @@ class LibriSpeechMixer:
 
         length = min(len(target1), len(target2))
 
-        freqs_target1, bins_target1, Pxx_target1 = spectrogram(target1[:length], fs=samplerate)
-        freqs_target2, bins_target2, Pxx_target2 = spectrogram(target2[:length], fs=samplerate)
+        freqs_target1, bins_target1, Pxx_target1 = spectrogram(target1[:length])
+        freqs_target2, bins_target2, Pxx_target2 = spectrogram(target2[:length])
 
         #output is in wav format
-        samplerate, mixed = read(outFilePath)
+        #samplerate, mixed = read(outFilePath)
 
-        freqs_mixed, bins_mixed, Pxx_mixed = spectrogram(mixed[:length], fs=samplerate)
+        freqs_mixed, bins_mixed, Pxx_mixed = spectrogram(mixed[:length])
 
         return np.moveaxis(np.array([Pxx_mixed])[:,:,:self.spec_length], 0, -1), \
                             np.moveaxis(np.array([Pxx_target1, Pxx_target2])[:,:,:self.spec_length], 0, -1)
