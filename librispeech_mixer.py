@@ -127,6 +127,7 @@ class LibriSpeechMixer:
 
         freqs_mixed, bins_mixed, Pxx_mixed = spectrogram(mixed[:length])
 
+
         return np.moveaxis(np.array([Pxx_mixed])[:,:,:self.spec_length], 0, -1), \
                             np.moveaxis(np.array([Pxx_target1, Pxx_target2])[:,:,:self.spec_length], 0, -1)
 

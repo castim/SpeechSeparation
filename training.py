@@ -141,7 +141,8 @@ def trainingLoog():
         except KeyboardInterrupt:
             pass
 
-trainingLoog();
+#trainingLoog();
+x_batch, y_batch = mixer.get_batch(10)
 
 epoch = np.arange(len(train_loss))
 plt.figure()
