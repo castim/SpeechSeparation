@@ -2,18 +2,11 @@ from __future__ import absolute_import, division, print_function
 
 import matplotlib.pyplot as plt
 import numpy as np
-# import sklearn.datasets
 import tensorflow as tf
-import os
-import sys
 import utils
 from librispeech_mixer import LibriSpeechMixer
-
-import keras
 from keras.layers import Input, Dense, Conv2D, MaxPooling2D, Conv2DTranspose
-from tensorflow.contrib.layers import flatten # We use this flatten, as it works better than
-                                              # the Keras 'Flatten' for some reason
-from memory_profiler import profile
+
 
 tf.reset_default_graph()
 
