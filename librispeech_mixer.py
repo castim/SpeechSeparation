@@ -22,7 +22,8 @@ class LibriSpeechMixer:
     spl_difference = 0
 
     #The length of the spectrogram we take
-    spec_length = 100
+    spec_length = 64
+    nb_freq = 128
 
 
     # Difference in the speech signal levels in dB.
@@ -128,13 +129,13 @@ class LibriSpeechMixer:
         freqs_mixed, bins_mixed, Pxx_mixed = spectrogram(mixed[:length])
 
 
-        return np.moveaxis(np.array([Pxx_mixed])[:,:,:self.spec_length], 0, -1), \
-                            np.moveaxis(np.array([Pxx_target1, Pxx_target2])[:,:,:self.spec_length], 0, -1)
+        return np.moveaxis(np.array([Pxx_mixed])[:,:self.nb_freq,:self.spec_length], 0, -1), \
+                            np.moveaxis(np.array([Pxx_target1, Pxx_target2])[:,:self.nb_freq,:self.spec_length], 0, -1)
 
 
     def get_batch(self, size=32):
-        batchIn = np.empty([size, 129, self.spec_length, 1])
-        batchOut = np.empty([size, 129, self.spec_length, 2])
+        batchIn = np.empty([size, self.nb_freq, self.spec_length, 1])
+        batchOut = np.empty([size, self.nb_freq, self.spec_length, 2])
 
         for i in range(0,size):
             sample = self.next()
