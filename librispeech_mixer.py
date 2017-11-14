@@ -105,8 +105,6 @@ class LibriSpeechMixer:
         sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
         target1 = self.normalise_divmax(np.array(sound1.get_array_of_samples()))
 
-
-
         sound2 = AudioSegment.from_file(self.female_audios[i],format='flac')
         target2 = self.normalise_divmax(np.array(sound2.get_array_of_samples()))
 
