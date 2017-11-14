@@ -60,15 +60,12 @@ with tf.variable_scope('loss'):
     # computing cross entropy per sample
     mean_square_error = tf.reduce_mean((y_pl - y) ** 2)
 
-
-
 with tf.variable_scope('training'):
     # defining our optimizer
     optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
 
     # applying the gradients
     train_op = optimizer.minimize(mean_square_error)
-
 
 #Create the LibriSpeech mixer
 mixer = LibriSpeechMixer()
