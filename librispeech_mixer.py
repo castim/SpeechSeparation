@@ -122,15 +122,16 @@ class LibriSpeechMixer:
 
         freqs_target1, bins_target1, Pxx_target1 = spectrogram(target1[:length])
         freqs_target2, bins_target2, Pxx_target2 = spectrogram(target2[:length])
+        mask_target = Pxx_target1 / (Pxx_target2 + Pxx_target1)
 
-        #output is in wav format
-        #samplerate, mixed = read(outFilePath)
+        # output is in wav format
+        # samplerate, mixed = read(outFilePath)
 
         freqs_mixed, bins_mixed, Pxx_mixed = spectrogram(mixed[:length])
 
+        return np.moveaxis(np.array([Pxx_mixed])[:, :, :self.spec_length], 0, -1), \
+               np.moveaxis(np.array([mask_target])[:, :, :self.spec_length], 0, -1)
 
-        return np.moveaxis(np.array([Pxx_mixed])[:,:self.nb_freq,:self.spec_length], 0, -1), \
-                            np.moveaxis(np.array([Pxx_target1, Pxx_target2])[:,:self.nb_freq,:self.spec_length], 0, -1)
 
 
     def get_batch(self, size=32):
