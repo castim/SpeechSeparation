@@ -129,14 +129,14 @@ class LibriSpeechMixer:
 
         freqs_mixed, bins_mixed, Pxx_mixed = spectrogram(mixed[:length])
 
-        return np.moveaxis(np.array([Pxx_mixed])[:, :, :self.spec_length], 0, -1), \
-               np.moveaxis(np.array([mask_target])[:, :, :self.spec_length], 0, -1)
+        return np.moveaxis(np.array([Pxx_mixed])[:, :self.nb_freq, :self.spec_length], 0, -1), \
+               np.moveaxis(np.array([mask_target])[:, :self.nb_freq, :self.spec_length], 0, -1)
 
 
 
     def get_batch(self, size=32):
         batchIn = np.empty([size, self.nb_freq, self.spec_length, 1])
-        batchOut = np.empty([size, self.nb_freq, self.spec_length, 2])
+        batchOut = np.empty([size, self.nb_freq, self.spec_length, 1])
 
         for i in range(0,size):
             sample = self.next()
