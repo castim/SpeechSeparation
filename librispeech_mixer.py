@@ -103,14 +103,16 @@ class LibriSpeechMixer:
         # subprocess.call(["sox", "-m", self.male_audios[i], self.female_audios[i], outFilePath])
 
         sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
-        target1 = np.array(sound1.get_array_of_samples())
+        target1 = self.normalise_divmax(np.array(sound1.get_array_of_samples()))
+
+
 
         sound2 = AudioSegment.from_file(self.female_audios[i],format='flac')
-        target2 = np.array(sound2.get_array_of_samples())
+        target2 = self.normalise_divmax(np.array(sound2.get_array_of_samples()))
 
         output = sound1.overlay(sound2, position=0)
         # output.export(outFilePath, format="wav")
-        mixed = np.array(output.get_array_of_samples())
+        mixed = self.normalise_divmax(np.array(output.get_array_of_samples()))
 
         # input is in flac
         # (sample rate is always the same)
@@ -142,3 +144,10 @@ class LibriSpeechMixer:
             batchOut[i, :, :, :] = sample[1]
 
         return batchIn, batchOut
+
+
+    def normalise_divmax(self, samples):
+
+        normalised = samples / max(samples)
+
+        return normalised
