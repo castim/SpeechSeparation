@@ -17,7 +17,7 @@ class LibriSpeechMixer:
     # Difference in the speech signal levels in dB.
     # Assumes that both audio files have been correctly normalized and have the same speech signal level initially.
 
-    def __init__(self, train=True):
+    def __init__(self, train=True, nbSamples = float("inf")):
         self.male_audios = []
         self.female_audios = []
         self.indices = []
@@ -63,7 +63,7 @@ class LibriSpeechMixer:
 
         self.female_audios = np.random.permutation(self.female_audios)
 
-        self.indices = range(0,min(len(self.male_audios), len(self.female_audios)))
+        self.indices = range(0,min(nbSamples, len(self.male_audios), len(self.female_audios)))
 
         #The list function performs a shallow copy
         self.indices_it = list(self.indices)
