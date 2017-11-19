@@ -30,11 +30,17 @@ class LibriSpeechMixer:
 
             female_file = "magnolia/data/librispeech/authors/train-clean-100-F.txt"
             male_file = "magnolia/data/librispeech/authors/train-clean-100-M.txt"
+
+            self.in_data_path = "Data/train/in/spec"
+            self.out_data_path = "Data/train/out/spec"
         else:
             audio_dir = "Data/LibriSpeech/dev-clean/"
 
             female_file = "magnolia/data/librispeech/authors/dev-clean-F.txt"
             male_file = "magnolia/data/librispeech/authors/dev-clean-M.txt"
+
+            self.in_data_path = "Data/dev/in/spec"
+            self.out_data_path = "Data/dev/out/spec"
 
         #Collect males dirs:
         male_speaker_dirs = [];
@@ -72,8 +78,6 @@ class LibriSpeechMixer:
         random.shuffle(self.indices_it)
 
         self.indices_it = iter(self.indices_it)
-
-        self.build_dataset()
 
     #@profile
     def next(self):
@@ -131,9 +135,6 @@ class LibriSpeechMixer:
 
     def build_dataset(self):
 
-        self.in_data = []
-        self.out_data = []
-
         for i in self.indices:
 
             sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
@@ -153,8 +154,8 @@ class LibriSpeechMixer:
 
             freqs_mixed, bins_mixed, Pxx_mixed = spectrogram(mixed[:length])
 
-            self.in_data.append(np.moveaxis(np.array([Pxx_mixed])[:, :, :self.spec_length], 0, -1))
-            self.out_data.append(np.moveaxis(np.array([mask_target])[:, :, :self.spec_length], 0, -1))
+            np.save(self.in_data_path + i, np.moveaxis(np.array([Pxx_mixed])[:, :, :self.spec_length], 0, -1))
+            np.save(self.out_data_path + i, np.moveaxis(np.array([mask_target])[:, :, :self.spec_length], 0, -1))
 
     def next2(self):
         try:
@@ -173,7 +174,7 @@ class LibriSpeechMixer:
             self.index_in_epoch = 0
             i = next(self.indices_it)
 
-        return self.in_data[i], self.out_data[i]
+        return np.load(self.in_data_path + i), np.load(self.out_data_path + i)
 
     def get_batch(self, size=32):
         batchIn = np.empty([size, self.nb_freq, self.spec_length, 1])
