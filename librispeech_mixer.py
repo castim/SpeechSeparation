@@ -73,6 +73,8 @@ class LibriSpeechMixer:
 
         self.indices_it = iter(self.indices_it)
 
+        self.build_dataset()
+
     #@profile
     def next(self):
 
@@ -127,14 +129,58 @@ class LibriSpeechMixer:
         return np.moveaxis(np.array([Pxx_mixed])[:, :, :self.spec_length], 0, -1), \
                np.moveaxis(np.array([mask_target])[:, :, :self.spec_length], 0, -1)
 
+    def build_dataset(self):
 
+        self.in_data = []
+        self.out_data = []
+
+        for i in indices:
+
+            sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
+            target1 = self.normalise_divmax(np.array(sound1.get_array_of_samples()))
+
+            sound2 = AudioSegment.from_file(self.female_audios[i],format='flac')
+            target2 = self.normalise_divmax(np.array(sound2.get_array_of_samples()))
+
+            output = sound1.overlay(sound2, position=0)
+            mixed = self.normalise_divmax(np.array(output.get_array_of_samples()))
+
+            length = min(len(target1), len(target2))
+
+            freqs_target1, bins_target1, Pxx_target1 = spectrogram(target1[:length])
+            freqs_target2, bins_target2, Pxx_target2 = spectrogram(target2[:length])
+            mask_target = Pxx_target1 / (Pxx_target2 + Pxx_target1)
+
+            freqs_mixed, bins_mixed, Pxx_mixed = spectrogram(mixed[:length])
+
+            self.in_data.append(np.moveaxis(np.array([Pxx_mixed])[:, :, :self.spec_length], 0, -1))
+            self.out_data.append(np.moveaxis(np.array([mask_target])[:, :, :self.spec_length], 0, -1))
+
+    def next2(self):
+        try:
+            i = next(self.indices_it)
+            self.index_in_epoch += 1
+
+        except StopIteration:
+            #The list function performs a shallow copy
+            self.indices_it = list(self.indices)
+
+            #works in place
+            random.shuffle(self.indices_it)
+            self.indices_it = iter(self.indices_it)
+
+            self.epochs_completed += 1
+            self.index_in_epoch = 0
+            i = next(self.indices_it)
+
+        return self.in_data[i], self.out_data[i]
 
     def get_batch(self, size=32):
         batchIn = np.empty([size, self.nb_freq, self.spec_length, 1])
         batchOut = np.empty([size, self.nb_freq, self.spec_length, 1])
 
         for i in range(0,size):
-            sample = self.next()
+            sample = self.next2()
             batchIn[i, :, :, :] = sample[0][:-1,:,:]
             batchOut[i, :, :, :] = sample[1][:-1,:,:]
 
