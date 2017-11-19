@@ -135,12 +135,12 @@ class LibriSpeechMixer:
 
     def get_batch(self, size=32):
         batchIn = np.empty([size, self.nb_freq, self.spec_length, 1])
-        batchOut = np.empty([size, self.nb_freq, self.spec_length, 2])
+        batchOut = np.empty([size, self.nb_freq, self.spec_length, 1])
 
         for i in range(0,size):
             sample = self.next()
             batchIn[i, :, :, :] = sample[0]
-            batchOut[i, :, :, :] = sample[1]
+            batchOut[i, :, :, :] = sample[1][:,:,0:1]
 
         return batchIn, batchOut
 
