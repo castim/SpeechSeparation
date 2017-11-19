@@ -10,26 +10,21 @@ class LibriSpeechMixer:
     #sudo mount -t tmpfs -o size=500m tmpfs tmpMixed
     output_dir = "tmpMixed/"
 
-    male_audios = []
-    female_audios = []
-
-    indices = []
-    indices_it = None
-    epochs_completed = 0
-    index_in_epoch = 0
-
-    #Do we need to implement a equalization?
-    spl_difference = 0
-
     #The length of the spectrogram we take
     spec_length = 64
     nb_freq = 128
-
 
     # Difference in the speech signal levels in dB.
     # Assumes that both audio files have been correctly normalized and have the same speech signal level initially.
 
     def __init__(self, train=True):
+        self.male_audios = []
+        self.female_audios = []
+        self.indices = []
+        self.indices_it = None
+        self.epochs_completed = 0
+        self.index_in_epoch = 0
+
         if train:
             audio_dir = "Data/LibriSpeech/train-clean-100/"
 
@@ -68,7 +63,7 @@ class LibriSpeechMixer:
 
         self.female_audios = np.random.permutation(self.female_audios)
 
-        self.indices = range(0, 1)#min(len(self.male_audios), len(self.female_audios)))
+        self.indices = range(0,min(len(self.male_audios), len(self.female_audios)))
 
         #The list function performs a shallow copy
         self.indices_it = list(self.indices)
