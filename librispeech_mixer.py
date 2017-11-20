@@ -165,7 +165,7 @@ class LibriSpeechMixer:
             self.index_in_epoch = 0
             i = next(self.indices_it)
 
-            Fxx_mixed = np.load(self.in_data_path + str(i) + ".npy")
+        Fxx_mixed = np.load(self.in_data_path + str(i) + ".npy")
 
         return np.abs(Fxx_mixed), np.load(self.out_data_path + str(i) + ".npy"), np.angle(Fxx_mixed)
 
