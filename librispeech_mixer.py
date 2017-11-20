@@ -1,6 +1,6 @@
 import os, glob
 import numpy as np
-from scipy.signal import spectrogram
+from scipy.signal import spectrogram, stft, istft
 import random
 from pydub import AudioSegment
 
@@ -22,7 +22,7 @@ class LibriSpeechMixer:
     spl_difference = 0
 
     #The length of the spectrogram we take
-    spec_length = 64
+    spec_length = 128
     nb_freq = 128
 
 
@@ -119,31 +119,40 @@ class LibriSpeechMixer:
         # target2, samplerate = sf.read(self.female_audios[i])
 
         length = min(len(target1), len(target2))
+        #spec_length = length
 
-        freqs_target1, bins_target1, Pxx_target1 = spectrogram(target1[:length])
-        freqs_target2, bins_target2, Pxx_target2 = spectrogram(target2[:length])
-        mask_target = Pxx_target1 / (Pxx_target2 + Pxx_target1)
+        freqs_target1, bins_target1, Pxx_target1 = stft(target1[:length])
+        freqs_target2, bins_target2, Pxx_target2 = stft(target2[:length])
+        mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1))
+
 
         # output is in wav format
         # samplerate, mixed = read(outFilePath)
 
-        freqs_mixed, bins_mixed, Pxx_mixed = spectrogram(mixed[:length])
+        freqs_mixed, bins_mixed, Fxx_mixed = stft(mixed[:length])
+        Fxx_mixed = Pxx_target1 + Pxx_target2
+
+        Pxx_mixed = np.abs(Fxx_mixed)
+        phase_mixed = np.angle(Fxx_mixed)
 
         return np.moveaxis(np.array([Pxx_mixed])[:, :, :self.spec_length], 0, -1), \
-               np.moveaxis(np.array([mask_target])[:, :, :self.spec_length], 0, -1)
-
+               np.moveaxis(np.array([mask_target])[:, :, :self.spec_length], 0, -1), \
+               np.moveaxis(np.array([phase_mixed])[:, :, :self.spec_length], 0, -1)
 
 
     def get_batch(self, size=32):
+
         batchIn = np.empty([size, self.nb_freq, self.spec_length, 1])
         batchOut = np.empty([size, self.nb_freq, self.spec_length, 1])
+        batchPhase = np.empty([size, self.nb_freq, self.spec_length, 1])
 
         for i in range(0,size):
             sample = self.next()
             batchIn[i, :, :, :] = sample[0][:-1,:,:]
             batchOut[i, :, :, :] = sample[1][:-1,:,:]
+            batchPhase[i, :, :, :] = sample[2][:-1, :, :]
 
-        return batchIn, batchOut
+        return batchIn, batchOut, batchPhase
 
 
     def normalise_divmax(self, samples):
