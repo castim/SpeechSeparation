@@ -123,7 +123,7 @@ class LibriSpeechMixer:
 
         freqs_target1, bins_target1, Pxx_target1 = spectrogram(target1[:length])
         freqs_target2, bins_target2, Pxx_target2 = spectrogram(target2[:length])
-        mask_target = Pxx_target1 / (Pxx_target2 + Pxx_target1)
+        mask_target = Pxx_target1 / (Pxx_target2 + Pxx_target1 + 1e-100)
 
         # output is in wav format
         # samplerate, mixed = read(outFilePath)
@@ -150,7 +150,7 @@ class LibriSpeechMixer:
 
             freqs_target1, bins_target1, Pxx_target1 = spectrogram(target1[:length])
             freqs_target2, bins_target2, Pxx_target2 = spectrogram(target2[:length])
-            mask_target = Pxx_target1 / (Pxx_target2 + Pxx_target1)
+            mask_target = Pxx_target1 / (Pxx_target2 + Pxx_target1 + 1e-100)
 
             freqs_mixed, bins_mixed, Pxx_mixed = spectrogram(mixed[:length])
 
