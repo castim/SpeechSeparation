@@ -146,8 +146,8 @@ class LibriSpeechMixer:
         self.out_data = np.empty((len(self.indices), self.nb_freq, self.spec_length, 1))
 
         for i in self.indices:
-            self.in_data[i, :, :, :] = np.load(self.in_data_path + str(i) + ".npy")
-            self.out_data[i, :, :, :] = np.load(self.out_data_path + str(i) + ".npy")
+            self.in_data[i, :, :, :] = np.load(self.in_data_path + str(i) + ".npy")[:self.nb_freq, :, :]
+            self.out_data[i, :, :, :] = np.load(self.out_data_path + str(i) + ".npy")[:self.nb_freq, :, :]
 
 
     def next_load_file(self):
@@ -194,8 +194,8 @@ class LibriSpeechMixer:
 
         for i in range(0,size):
             sample = self.next_mem()
-            batchIn[i, :, :, :] = sample[0][:-1,:,:]
-            batchOut[i, :, :, :] = sample[1][:-1,:,:]
+            batchIn[i, :, :, :] = sample[0][:self.nb_freq,:,:]
+            batchOut[i, :, :, :] = sample[1][:self.nb_freq,:,:]
 
         return batchIn, batchOut
 
