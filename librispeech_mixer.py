@@ -157,7 +157,7 @@ class LibriSpeechMixer:
             np.save(self.in_data_path + str(i), np.moveaxis(np.array([Pxx_mixed])[:, :, :self.spec_length], 0, -1))
             np.save(self.out_data_path + str(i), np.moveaxis(np.array([mask_target])[:, :, :self.spec_length], 0, -1))
 
-    def load_dataset():
+    def load_dataset(self):
         self.in_data = np.empty((len(indices), self.n_freq, self.spec_length, 1))
         self.out_data = np.empty((len(indices), self.n_freq, self.spec_length, 1))
 
