@@ -193,7 +193,7 @@ class LibriSpeechMixer:
         batchOut = np.empty([size, self.nb_freq, self.spec_length, 1])
 
         for i in range(0,size):
-            sample = self.next_mem()
+            sample = self.next_load_file()
             batchIn[i, :, :, :] = sample[0][:self.nb_freq,:,:]
             batchOut[i, :, :, :] = sample[1][:self.nb_freq,:,:]
 
