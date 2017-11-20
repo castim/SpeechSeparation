@@ -119,13 +119,16 @@ class LibriSpeechMixer:
                np.moveaxis(np.array([phase_mixed])[:, :, :self.spec_length], 0, -1)
 
     def build_dataset(self):
+        indices_iterator = list(self.indices)
+        random.shuffle(indices_iterator)
 
-        for i in self.indices:
+        #enumerate to take different females for the males
+        for i, j in enumerate(indices_iterator):
 
             sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
             target1 = self.normalise_divmax(np.array(sound1.get_array_of_samples()))
 
-            sound2 = AudioSegment.from_file(self.female_audios[i],format='flac')
+            sound2 = AudioSegment.from_file(self.female_audios[j],format='flac')
             target2 = self.normalise_divmax(np.array(sound2.get_array_of_samples()))
 
             length = min(len(target1), len(target2))
