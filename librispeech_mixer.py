@@ -174,7 +174,7 @@ class LibriSpeechMixer:
             self.index_in_epoch = 0
             i = next(self.indices_it)
 
-        return np.load(self.in_data_path + str(i)), np.load(self.out_data_path + str(i))
+        return np.load(self.in_data_path + str(i) + ".npy"), np.load(self.out_data_path + str(i) + ".npy")
 
     def get_batch(self, size=32):
         batchIn = np.empty([size, self.nb_freq, self.spec_length, 1])
