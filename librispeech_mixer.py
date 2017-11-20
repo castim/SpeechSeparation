@@ -103,16 +103,12 @@ class LibriSpeechMixer:
         sound2 = AudioSegment.from_file(self.female_audios[i],format='flac')
         target2 = self.normalise_divmax(np.array(sound2.get_array_of_samples()))
 
-        output = sound1.overlay(sound2, position=0)
-        mixed = self.normalise_divmax(np.array(output.get_array_of_samples()))
-
         length = min(len(target1), len(target2))
 
         freqs_target1, bins_target1, Pxx_target1 = stft(target1[:length])
         freqs_target2, bins_target2, Pxx_target2 = stft(target2[:length])
         mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1) + 1e-100)
 
-        freqs_mixed, bins_mixed, Fxx_mixed = stft(mixed[:length])
         Fxx_mixed = Pxx_target1 + Pxx_target2
 
         Pxx_mixed = np.abs(Fxx_mixed)
@@ -132,18 +128,15 @@ class LibriSpeechMixer:
             sound2 = AudioSegment.from_file(self.female_audios[i],format='flac')
             target2 = self.normalise_divmax(np.array(sound2.get_array_of_samples()))
 
-            output = sound1.overlay(sound2, position=0)
-            mixed = self.normalise_divmax(np.array(output.get_array_of_samples()))
-
             length = min(len(target1), len(target2))
 
-            freqs_target1, bins_target1, Pxx_target1 = spectrogram(target1[:length])
-            freqs_target2, bins_target2, Pxx_target2 = spectrogram(target2[:length])
-            mask_target = Pxx_target1 / (Pxx_target2 + Pxx_target1 + 1e-100)
+            freqs_target1, bins_target1, Pxx_target1 = stft(target1[:length])
+            freqs_target2, bins_target2, Pxx_target2 = stft(target2[:length])
+            mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1) + 1e-100)
 
-            freqs_mixed, bins_mixed, Pxx_mixed = spectrogram(mixed[:length])
+            Fxx_mixed = Pxx_target1 + Pxx_target2
 
-            np.save(self.in_data_path + str(i), np.moveaxis(np.array([Pxx_mixed])[:, :, :self.spec_length], 0, -1))
+            np.save(self.in_data_path + str(i), np.moveaxis(np.array([Fxx_mixed])[:, :, :self.spec_length], 0, -1))
             np.save(self.out_data_path + str(i), np.moveaxis(np.array([mask_target])[:, :, :self.spec_length], 0, -1))
 
     def load_dataset(self):
@@ -172,7 +165,9 @@ class LibriSpeechMixer:
             self.index_in_epoch = 0
             i = next(self.indices_it)
 
-        return np.load(self.in_data_path + str(i) + ".npy"), np.load(self.out_data_path + str(i) + ".npy")
+            Fxx_mixed = np.load(self.in_data_path + str(i) + ".npy")
+
+        return np.abs(Fxx_mixed), np.load(self.out_data_path + str(i) + ".npy"), np.angle(Fxx_mixed)
 
     def next_mem(self):
         try:
@@ -191,7 +186,7 @@ class LibriSpeechMixer:
             self.index_in_epoch = 0
             i = next(self.indices_it)
 
-        return self.in_data[i],self.out_data[i]
+        return np.abs(self.in_data[i]),self.out_data[i], np.angle(self.in_data[i])
 
     def get_batch(self, size=32):
 
