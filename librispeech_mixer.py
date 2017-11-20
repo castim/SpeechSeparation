@@ -157,7 +157,16 @@ class LibriSpeechMixer:
             np.save(self.in_data_path + str(i), np.moveaxis(np.array([Pxx_mixed])[:, :, :self.spec_length], 0, -1))
             np.save(self.out_data_path + str(i), np.moveaxis(np.array([mask_target])[:, :, :self.spec_length], 0, -1))
 
-    def next2(self):
+    def load_dataset():
+        self.in_data = np.empty((len(indices), self.n_freq, self.spec_length, 1))
+        self.out_data = np.empty((len(indices), self.n_freq, self.spec_length, 1))
+
+        for i in indices:
+            self.in_data[i, :, :, :] = np.load(self.in_data_path + str(i) + ".npy")
+            self.out_data[i, :, :, :] = np.load(self.out_data_path + str(i) + ".npy")
+
+
+    def next_load_file(self):
         try:
             i = next(self.indices_it)
             self.index_in_epoch += 1
@@ -176,12 +185,31 @@ class LibriSpeechMixer:
 
         return np.load(self.in_data_path + str(i) + ".npy"), np.load(self.out_data_path + str(i) + ".npy")
 
+    def next_mem(self):
+        try:
+            i = next(self.indices_it)
+            self.index_in_epoch += 1
+
+        except StopIteration:
+            #The list function performs a shallow copy
+            self.indices_it = list(self.indices)
+
+            #works in place
+            random.shuffle(self.indices_it)
+            self.indices_it = iter(self.indices_it)
+
+            self.epochs_completed += 1
+            self.index_in_epoch = 0
+            i = next(self.indices_it)
+
+        return self.in_data[i],self.out_data[i]
+
     def get_batch(self, size=32):
         batchIn = np.empty([size, self.nb_freq, self.spec_length, 1])
         batchOut = np.empty([size, self.nb_freq, self.spec_length, 1])
 
         for i in range(0,size):
-            sample = self.next2()
+            sample = self.next_mem()
             batchIn[i, :, :, :] = sample[0][:-1,:,:]
             batchOut[i, :, :, :] = sample[1][:-1,:,:]
 
