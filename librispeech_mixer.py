@@ -79,7 +79,6 @@ class LibriSpeechMixer:
 
         self.indices_it = iter(self.indices_it)
 
-    #@profile
     def next(self):
 
         try:
@@ -98,12 +97,6 @@ class LibriSpeechMixer:
             self.index_in_epoch = 0
             i = next(self.indices_it)
 
-        """outFileName = os.path.splitext(basename(self.male_audios[i]))[0] + "_" \
-                        + os.path.splitext(basename(self.female_audios[i]))[0] + ".wav"
-                        """
-        #outFilePath = os.path.join(self.output_dir, "temp.wav")
-        # subprocess.call(["sox", "-m", self.male_audios[i], self.female_audios[i], outFilePath])
-
         sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
         target1 = self.normalise_divmax(np.array(sound1.get_array_of_samples()))
 
@@ -111,22 +104,13 @@ class LibriSpeechMixer:
         target2 = self.normalise_divmax(np.array(sound2.get_array_of_samples()))
 
         output = sound1.overlay(sound2, position=0)
-        # output.export(outFilePath, format="wav")
         mixed = self.normalise_divmax(np.array(output.get_array_of_samples()))
-
-        # input is in flac
-        # (sample rate is always the same)
-        # target1, samplerate = sf.read(self.male_audios[i])
-        # target2, samplerate = sf.read(self.female_audios[i])
 
         length = min(len(target1), len(target2))
 
         freqs_target1, bins_target1, Pxx_target1 = spectrogram(target1[:length])
         freqs_target2, bins_target2, Pxx_target2 = spectrogram(target2[:length])
         mask_target = Pxx_target1 / (Pxx_target2 + Pxx_target1 + 1e-100)
-
-        # output is in wav format
-        # samplerate, mixed = read(outFilePath)
 
         freqs_mixed, bins_mixed, Pxx_mixed = spectrogram(mixed[:length])
 
@@ -161,7 +145,7 @@ class LibriSpeechMixer:
         self.in_data = np.empty((len(indices), self.n_freq, self.spec_length, 1))
         self.out_data = np.empty((len(indices), self.n_freq, self.spec_length, 1))
 
-        for i in indices:
+        for i in self.indices:
             self.in_data[i, :, :, :] = np.load(self.in_data_path + str(i) + ".npy")
             self.out_data[i, :, :, :] = np.load(self.out_data_path + str(i) + ".npy")
 
