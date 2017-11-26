@@ -3,6 +3,7 @@ import numpy as np
 from scipy.signal import spectrogram, stft, istft
 import random
 from pydub import AudioSegment
+from multiprocessing import Pool
 
 class TestMixer:
 
@@ -103,54 +104,40 @@ class TestMixer:
         self.current_sample_test_in = np.load(self.in_data_path_test + str(self.current_sample_test) + '.npy')
         self.current_sample_test_out = np.load(self.out_data_path_test + str(self.current_sample_test) + '.npy')
 
+    def mix_and_save(self, i, j, in_path, out_path):
+        sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
+        target1 = self.normalise_divmax(np.array(sound1.get_array_of_samples()))
+
+        sound2 = AudioSegment.from_file(self.female_audios[j],format='flac')
+        target2 = self.normalise_divmax(np.array(sound2.get_array_of_samples()))
+
+        length = min(len(target1), len(target2))
+
+        freqs_target1, bins_target1, Pxx_target1 = stft(target1[:length])
+        freqs_target2, bins_target2, Pxx_target2 = stft(target2[:length])
+        mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1) + 1e-100)
+
+        Fxx_mixed = Pxx_target1 + Pxx_target2
+
+        np.save(in_path + str(i), np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, :], 0, -1))
+        np.save(out_path + str(i), np.moveaxis(np.array([mask_target])[:, :self.nb_freq, :], 0, -1))
+
     def build_dataset(self):
         indices_iterator = list(self.indices_train)
         random.shuffle(indices_iterator)
 
-
+        p = Pool(9)
         #enumerate to take different females for the males
-        for i, j in enumerate(indices_iterator):
+        p.starmap(self.mix_and_save, [lambda x: (x[0], x[1], self.in_data_path_train, self.out_data_path_train), \
+                                                                    enumerate(indices_iterator))
 
-            sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
-            target1 = self.normalise_divmax(np.array(sound1.get_array_of_samples()))
-
-            sound2 = AudioSegment.from_file(self.female_audios[j],format='flac')
-            target2 = self.normalise_divmax(np.array(sound2.get_array_of_samples()))
-
-            length = min(len(target1), len(target2))
-
-            freqs_target1, bins_target1, Pxx_target1 = stft(target1[:length])
-            freqs_target2, bins_target2, Pxx_target2 = stft(target2[:length])
-            mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1) + 1e-100)
-
-            Fxx_mixed = Pxx_target1 + Pxx_target2
-
-            np.save(self.in_data_path_train + str(i), np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, :], 0, -1))
-            np.save(self.out_data_path_train + str(i), np.moveaxis(np.array([mask_target])[:, :self.nb_freq, :], 0, -1))
 
         indices_iterator = list(self.indices_test)
         random.shuffle(indices_iterator)
 
         #enumerate to take different females for the males
-        for i, j in enumerate(indices_iterator):
-
-            sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
-            target1 = self.normalise_divmax(np.array(sound1.get_array_of_samples()))
-
-            sound2 = AudioSegment.from_file(self.female_audios[j],format='flac')
-            target2 = self.normalise_divmax(np.array(sound2.get_array_of_samples()))
-
-            length = min(len(target1), len(target2))
-
-            freqs_target1, bins_target1, Pxx_target1 = stft(target1[:length])
-            freqs_target2, bins_target2, Pxx_target2 = stft(target2[:length])
-            mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1) + 1e-100)
-
-            Fxx_mixed = Pxx_target1 + Pxx_target2
-
-            np.save(self.in_data_path_test + str(i), np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, :], 0, -1))
-            np.save(self.out_data_path_test + str(i), np.moveaxis(np.array([mask_target])[:, :self.nb_freq, :], 0, -1))
-
+        p.starmap(self.mix_and_save, [lambda x: (x[0], x[1], self.in_data_path_test, self.out_data_path_test), \
+                                                                    enumerate(indices_iterator))
 
     def build_dataset_in_mem(self):
         indices_iterator = list(self.indices_train)
@@ -241,7 +228,7 @@ class TestMixer:
             self.in_file_ind_test += self.spec_length
             if self.in_file_ind_test > self.current_sample_test_in.shape[1]:
 
-                self.current_sample_test = next(self.indices_test_it)                
+                self.current_sample_test = next(self.indices_test_it)
                 self.current_sample_test_in = np.load(self.in_data_path_test + str(self.current_sample_test) + '.npy')
                 self.current_sample_test_out = np.load(self.out_data_path_test + str(self.current_sample_test) + '.npy')
                 self.in_file_ind_test = self.spec_length
