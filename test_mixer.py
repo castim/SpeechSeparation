@@ -17,7 +17,7 @@ class TestMixer:
     # Difference in the speech signal levels in dB.
     # Assumes that both audio files have been correctly normalized and have the same speech signal level initially.
 
-    def __init__(self, train=True, nbSamples = float("inf"), nbSpeakers = float("inf")):
+    def __init__(self, nbSamples = float("inf"), nbSpeakers = float("inf")):
         self.male_audios = []
         self.female_audios = []
         self.indices = []
@@ -27,22 +27,17 @@ class TestMixer:
         self.index_in_epoch_test = 0
         self.in_file_ind_train = 0
         self.in_file_ind_test = 0
-        if train:
-            audio_dir = "Data/LibriSpeech/train-clean-100/"
 
-            female_file = "magnolia/data/librispeech/authors/train-clean-100-F.txt"
-            male_file = "magnolia/data/librispeech/authors/train-clean-100-M.txt"
+        audio_dir = "Data/LibriSpeech/train-clean-100/"
 
-            self.in_data_path = "Data/train/in/spec"
-            self.out_data_path = "Data/train/out/spec"
-        else:
-            audio_dir = "Data/LibriSpeech/dev-clean/"
+        female_file = "magnolia/data/librispeech/authors/train-clean-100-F.txt"
+        male_file = "magnolia/data/librispeech/authors/train-clean-100-M.txt"
 
-            female_file = "magnolia/data/librispeech/authors/dev-clean-F.txt"
-            male_file = "magnolia/data/librispeech/authors/dev-clean-M.txt"
+        self.in_data_path_train = "Data/train/in/spec"
+        self.out_data_path_train = "Data/train/out/spec"
 
-            self.in_data_path = "Data/dev/in/spec"
-            self.out_data_path = "Data/dev/out/spec"
+        self.in_data_path_test = "Data/dev/in/spec"
+        self.out_data_path_test = "Data/dev/out/spec"
 
         #Collect males dirs:
         male_speaker_dirs = [];
@@ -102,6 +97,54 @@ class TestMixer:
 
         self.current_sample_test = next(self.indices_test_it)
 
+    def build_dataset(self):
+        indices_iterator = list(self.indices_train)
+        random.shuffle(indices_iterator)
+
+
+        #enumerate to take different females for the males
+        for i, j in enumerate(indices_iterator):
+
+            sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
+            target1 = self.normalise_divmax(np.array(sound1.get_array_of_samples()))
+
+            sound2 = AudioSegment.from_file(self.female_audios[j],format='flac')
+            target2 = self.normalise_divmax(np.array(sound2.get_array_of_samples()))
+
+            length = min(len(target1), len(target2))
+
+            freqs_target1, bins_target1, Pxx_target1 = stft(target1[:length])
+            freqs_target2, bins_target2, Pxx_target2 = stft(target2[:length])
+            mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1) + 1e-100)
+
+            Fxx_mixed = Pxx_target1 + Pxx_target2
+
+            np.save(self.in_data_path_train + str(i), np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, :], 0, -1))
+            np.save(self.out_data_path_train + str(i), np.moveaxis(np.array([mask_target])[:, :self.nb_freq, :], 0, -1))
+
+        indices_iterator = list(self.indices_test)
+        random.shuffle(indices_iterator)
+
+        #enumerate to take different females for the males
+        for i, j in enumerate(indices_iterator):
+
+            sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
+            target1 = self.normalise_divmax(np.array(sound1.get_array_of_samples()))
+
+            sound2 = AudioSegment.from_file(self.female_audios[j],format='flac')
+            target2 = self.normalise_divmax(np.array(sound2.get_array_of_samples()))
+
+            length = min(len(target1), len(target2))
+
+            freqs_target1, bins_target1, Pxx_target1 = stft(target1[:length])
+            freqs_target2, bins_target2, Pxx_target2 = stft(target2[:length])
+            mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1) + 1e-100)
+
+            Fxx_mixed = Pxx_target1 + Pxx_target2
+
+            np.save(self.in_data_path_test + str(i), np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, :], 0, -1))
+            np.save(self.out_data_path_test + str(i), np.moveaxis(np.array([mask_target])[:, :self.nb_freq, :], 0, -1))
+
 
     def build_dataset_in_mem(self):
         indices_iterator = list(self.indices_train)
@@ -156,7 +199,6 @@ class TestMixer:
             self.in_data_test.append(np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, :], 0, -1))
             self.out_data_test.append(np.moveaxis(np.array([mask_target])[:, :self.nb_freq, :], 0, -1))
 
-
     def next_mem_train(self):
         try:
             self.index_in_epoch += 1
@@ -176,11 +218,12 @@ class TestMixer:
 
             self.epochs_completed += 1
             self.index_in_epoch = 0
-            i = next(self.indices_train_it)
+            self.current_sample_train = next(self.indices_train_it)
+            self.in_file_ind_train = self.spec_length
 
-        return np.abs(self.in_data_train[i][:,self.in_file_ind_train-self.spec_length:self.in_file_ind_train, :]),
-                self.out_data_train[i][:,self.in_file_ind_train-self.spec_length:self.in_file_ind_train, :],
-                np.angle(self.in_data_train[i][:,self.in_file_ind_train-self.spec_length:self.in_file_ind_train, :])
+        return np.abs(self.in_data_train[self.current_sample_train][:,self.in_file_ind_train-self.spec_length:self.in_file_ind_train, :]),\
+                self.out_data_train[self.current_sample_train][:,self.in_file_ind_train-self.spec_length:self.in_file_ind_train, :],\
+                np.angle(self.in_data_train[self.current_sample_train][:,self.in_file_ind_train-self.spec_length:self.in_file_ind_train, :])
 
     def next_mem_test(self):
         try:
@@ -200,11 +243,12 @@ class TestMixer:
 
             self.epochs_completed_test += 1
             self.index_in_epoch_test = 0
-            i = next(self.indices_test_it)
+            self.current_sample_test = next(self.indices_test_it)
+            self.in_file_ind_test = self.spec_length
 
-        return np.abs(self.in_data_test[i][:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :]),
-                self.out_data_test[i][:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :],
-                np.angle(self.in_data_test[i][:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :])
+        return np.abs(self.in_data_test[self.current_sample_test][:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :]),\
+                self.out_data_test[self.current_sample_test][:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :],\
+                np.angle(self.in_data_test[self.current_sample_test][:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :])
 
     def get_batch(self, size=32):
 
