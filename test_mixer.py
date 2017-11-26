@@ -83,7 +83,7 @@ class TestMixer:
 
         if not dataset_built:
             self.build_dataset()
-            
+
         #The list function performs a shallow copy
         self.indices_train_it = list(self.indices_train)
         #works in place
@@ -94,7 +94,6 @@ class TestMixer:
         self.current_sample_train_in = np.load(self.in_data_path_train + str(self.current_sample_train) + '.npy')
         self.current_sample_train_out = np.load(self.out_data_path_train + str(self.current_sample_train) + '.npy')
 
-        #The list function performs a shallow copy
         self.indices_test_it = [x - self.sep for x in self.indices_test]
         #works in place
         random.shuffle(self.indices_test_it)
@@ -210,9 +209,11 @@ class TestMixer:
         try:
             self.index_in_epoch += 1
             self.in_file_ind_train += self.spec_length
-            if self.in_file_ind_train > self.in_data_train[self.current_sample_train].shape[1]:
+            if self.in_file_ind_train > self.current_sample_train_in.shape[1]:
 
                 self.current_sample_train = next(self.indices_train_it)
+                self.current_sample_train_in = np.load(self.in_data_path_train + str(self.current_sample_train) + '.npy')
+                self.current_sample_train_out = np.load(self.out_data_path_train + str(self.current_sample_train) + '.npy')
                 self.in_file_ind_train = self.spec_length
 
         except StopIteration:
@@ -238,9 +239,11 @@ class TestMixer:
         try:
             self.index_in_epoch += 1
             self.in_file_ind_test += self.spec_length
-            if self.in_file_ind_test > self.in_data_test[self.current_sample_test].shape[1]:
+            if self.in_file_ind_test > self.current_sample_test_in.shape[1]:
 
-                self.current_sample_test = next(self.indices_test_it)
+                self.current_sample_test = next(self.indices_test_it)                
+                self.current_sample_test_in = np.load(self.in_data_path_test + str(self.current_sample_test) + '.npy')
+                self.current_sample_test_out = np.load(self.out_data_path_test + str(self.current_sample_test) + '.npy')
                 self.in_file_ind_test = self.spec_length
 
         except StopIteration:
