@@ -34,11 +34,11 @@ class TestMixer:
         female_file = "magnolia/data/librispeech/authors/train-clean-100-F.txt"
         male_file = "magnolia/data/librispeech/authors/train-clean-100-M.txt"
 
-        self.in_data_path_train = "Data/train/in/spec"
-        self.out_data_path_train = "Data/train/out/spec"
+        self.in_data_path_train = "/mnt/train/in/spec"
+        self.out_data_path_train = "/mnt/train/out/spec"
 
-        self.in_data_path_test = "Data/dev/in/spec"
-        self.out_data_path_test = "Data/dev/out/spec"
+        self.in_data_path_test = "/mnt/dev/in/spec"
+        self.out_data_path_test = "/mnt/dev/out/spec"
 
         #Collect males dirs:
         male_speaker_dirs = [];
