@@ -88,6 +88,8 @@ class TestMixer:
         self.indices_train_it = iter(self.indices_train_it)
 
         self.current_sample_train = next(self.indices_train_it)
+        self.current_sample_train_in = np.load(self.in_data_path_train + str(self.current_sample_train) + '.npy')
+        self.current_sample_train_out = np.load(self.out_data_path_train + str(self.current_sample_train) + '.npy')
 
         #The list function performs a shallow copy
         self.indices_test_it = [x - self.sep for x in self.indices_test]
@@ -96,6 +98,8 @@ class TestMixer:
         self.indices_test_it = iter(self.indices_test_it)
 
         self.current_sample_test = next(self.indices_test_it)
+        self.current_sample_test_in = np.load(self.in_data_path_test + str(self.current_sample_test) + '.npy')
+        self.current_sample_test_out = np.load(self.out_data_path_test + str(self.current_sample_test) + '.npy')
 
     def build_dataset(self):
         indices_iterator = list(self.indices_train)
@@ -198,6 +202,61 @@ class TestMixer:
 
             self.in_data_test.append(np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, :], 0, -1))
             self.out_data_test.append(np.moveaxis(np.array([mask_target])[:, :self.nb_freq, :], 0, -1))
+
+    def next_file_train(self):
+        try:
+            self.index_in_epoch += 1
+            self.in_file_ind_train += self.spec_length
+            if self.in_file_ind_train > self.in_data_train[self.current_sample_train].shape[1]:
+
+                self.current_sample_train = next(self.indices_train_it)
+                self.in_file_ind_train = self.spec_length
+
+        except StopIteration:
+            #The list function performs a shallow copy
+            self.indices_train_it = list(self.indices_train)
+
+            #works in place
+            random.shuffle(self.indices_train_it)
+            self.indices_train_it = iter(self.indices_train_it)
+
+            self.epochs_completed += 1
+            self.index_in_epoch = 0
+            self.current_sample_train = next(self.indices_train_it)
+            self.current_sample_train_in = np.load(self.in_data_path_train + str(self.current_sample_train) + '.npy')
+            self.current_sample_train_out = np.load(self.out_data_path_train + str(self.current_sample_train) + '.npy')
+            self.in_file_ind_train = self.spec_length
+
+        return np.abs(self.current_sample_train_in[:,self.in_file_ind_train-self.spec_length:self.in_file_ind_train, :]),\
+                self.current_sample_train_out[:,self.in_file_ind_train-self.spec_length:self.in_file_ind_train, :],\
+                np.angle(self.current_sample_train_in[:,self.in_file_ind_train-self.spec_length:self.in_file_ind_train, :])
+
+    def next_file_test(self):
+        try:
+            self.index_in_epoch += 1
+            self.in_file_ind_test += self.spec_length
+            if self.in_file_ind_test > self.in_data_test[self.current_sample_test].shape[1]:
+
+                self.current_sample_test = next(self.indices_test_it)
+                self.in_file_ind_test = self.spec_length
+
+        except StopIteration:
+            self.indices_test_it = [x - self.sep for x in self.indices_test]
+
+            #works in place
+            random.shuffle(self.indices_test_it)
+            self.indices_test_it = iter(self.indices_test_it)
+
+            self.epochs_completed_test += 1
+            self.index_in_epoch_test = 0
+            self.current_sample_test = next(self.indices_test_it)
+            self.current_sample_test_in = np.load(self.in_data_path_test + str(self.current_sample_test) + '.npy')
+            self.current_sample_test_out = np.load(self.out_data_path_test + str(self.current_sample_test) + '.npy')
+            self.in_file_ind_test = self.spec_length
+
+        return np.abs(self.current_sample_test_in[:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :]),\
+                self.current_sample_test_out[:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :],\
+                np.angle(self.current_sample_test_in[:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test,
 
     def next_mem_train(self):
         try:
