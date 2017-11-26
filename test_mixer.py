@@ -17,7 +17,7 @@ class TestMixer:
     # Difference in the speech signal levels in dB.
     # Assumes that both audio files have been correctly normalized and have the same speech signal level initially.
 
-    def __init__(self, nbSamples = float("inf"), nbSpeakers = float("inf")):
+    def __init__(self, nbSamples = float("inf"), nbSpeakers = float("inf"), dataset_built=True):
         self.male_audios = []
         self.female_audios = []
         self.indices = []
@@ -81,6 +81,9 @@ class TestMixer:
         self.indices_train = self.indices[:self.sep]
         self.indices_test = self.indices[self.sep:]
 
+        if not dataset_built:
+            self.build_dataset()
+            
         #The list function performs a shallow copy
         self.indices_train_it = list(self.indices_train)
         #works in place
@@ -256,7 +259,7 @@ class TestMixer:
 
         return np.abs(self.current_sample_test_in[:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :]),\
                 self.current_sample_test_out[:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :],\
-                np.angle(self.current_sample_test_in[:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test,
+                np.angle(self.current_sample_test_in[:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :])
 
     def next_mem_train(self):
         try:
