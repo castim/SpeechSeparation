@@ -123,7 +123,7 @@ class TestMixer:
 
             Fxx_mixed = Pxx_target1 + Pxx_target2
 
-            np.savez_compressed(self.in_data_path_train + str(i), in=np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, :], 0, -1)\
+            np.savez_compressed(self.in_data_path_train + str(i), input=np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, :], 0, -1),\
                 out = np.moveaxis(np.array([mask_target])[:, :self.nb_freq, :], 0, -1))
 
         indices_iterator = list(self.indices_test)
@@ -146,7 +146,7 @@ class TestMixer:
 
             Fxx_mixed = Pxx_target1 + Pxx_target2
 
-            np.savez_compressed(self.in_data_path_test + str(i), in = np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, :], 0, -1),\
+            np.savez_compressed(self.in_data_path_test + str(i), input = np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, :], 0, -1),\
                 out = np.moveaxis(np.array([mask_target])[:, :self.nb_freq, :], 0, -1))
 
 
@@ -207,7 +207,7 @@ class TestMixer:
         try:
             self.index_in_epoch += 1
             self.in_file_ind_train += self.spec_length
-            if self.in_file_ind_train > self.current_sample_train_in['in'].shape[1]:
+            if self.in_file_ind_train > self.current_sample_train_in['input'].shape[1]:
 
                 self.current_sample_train = next(self.indices_train_it)
                 self.current_sample_train_in = np.load(self.in_data_path_train + str(self.current_sample_train) + '.npz')
@@ -227,15 +227,15 @@ class TestMixer:
             self.current_sample_train_in = np.load(self.in_data_path_train + str(self.current_sample_train) + '.npz')
             self.in_file_ind_train = self.spec_length
 
-        return np.abs(self.current_sample_train_in['in'][:,self.in_file_ind_train-self.spec_length:self.in_file_ind_train, :]),\
+        return np.abs(self.current_sample_train_in['input'][:,self.in_file_ind_train-self.spec_length:self.in_file_ind_train, :]),\
                 self.current_sample_train_in['out'][:,self.in_file_ind_train-self.spec_length:self.in_file_ind_train, :],\
-                np.angle(self.current_sample_train_in['in'][:,self.in_file_ind_train-self.spec_length:self.in_file_ind_train, :])
+                np.angle(self.current_sample_train_in['input'][:,self.in_file_ind_train-self.spec_length:self.in_file_ind_train, :])
 
     def next_file_test(self):
         try:
             self.index_in_epoch += 1
             self.in_file_ind_test += self.spec_length
-            if self.in_file_ind_test > self.current_sample_test_in['in'].shape[1]:
+            if self.in_file_ind_test > self.current_sample_test_in['input'].shape[1]:
 
                 self.current_sample_test = next(self.indices_test_it)
                 self.current_sample_test_in = np.load(self.in_data_path_test + str(self.current_sample_test) + '.npz')
@@ -254,9 +254,9 @@ class TestMixer:
             self.current_sample_test_in = np.load(self.in_data_path_test + str(self.current_sample_test) + '.npz')
             self.in_file_ind_test = self.spec_length
 
-        return np.abs(self.current_sample_test_in['in'][:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :]),\
+        return np.abs(self.current_sample_test_in['input'][:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :]),\
                 self.current_sample_test_in['out'][:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :],\
-                np.angle(self.current_sample_test_in['in'][:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :])
+                np.angle(self.current_sample_test_in['input'][:,self.in_file_ind_test-self.spec_length:self.in_file_ind_test, :])
 
     def next_mem_train(self):
         try:
@@ -316,7 +316,7 @@ class TestMixer:
         batchPhase = np.empty([size, self.nb_freq, self.spec_length, 1])
 
         for i in range(0,size):
-            sample = self.next_mem_train()
+            sample = self.next_file_train()
             batchIn[i, :, :, :] = sample[0][:self.nb_freq,:,:]
             batchOut[i, :, :, :] = sample[1][:self.nb_freq,:,:]
             batchPhase[i, :, :, :] = sample[2][:self.nb_freq, :, :]
@@ -330,7 +330,7 @@ class TestMixer:
         batchPhase = np.empty([size, self.nb_freq, self.spec_length, 1])
 
         for i in range(0,size):
-            sample = self.next_mem_test()
+            sample = self.next_file_test()
             batchIn[i, :, :, :] = sample[0][:self.nb_freq,:,:]
             batchOut[i, :, :, :] = sample[1][:self.nb_freq,:,:]
             batchPhase[i, :, :, :] = sample[2][:self.nb_freq, :, :]
