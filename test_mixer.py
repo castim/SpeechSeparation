@@ -129,7 +129,7 @@ class TestMixer:
         p = Pool(9)
         #enumerate to take different females for the males
         p.starmap(self.mix_and_save, [lambda x: (x[0], x[1], self.in_data_path_train, self.out_data_path_train), \
-                                                                    enumerate(indices_iterator))
+                                                                    enumerate(indices_iterator)])
 
 
         indices_iterator = list(self.indices_test)
@@ -137,7 +137,7 @@ class TestMixer:
 
         #enumerate to take different females for the males
         p.starmap(self.mix_and_save, [lambda x: (x[0], x[1], self.in_data_path_test, self.out_data_path_test), \
-                                                                    enumerate(indices_iterator))
+                                                                    enumerate(indices_iterator)])
 
     def build_dataset_in_mem(self):
         indices_iterator = list(self.indices_train)
