@@ -4,6 +4,7 @@ from scipy.signal import spectrogram, stft, istft
 import random
 from pydub import AudioSegment
 from multiprocessing import Pool
+import tensorflow as tf
 
 class TestMixer:
 
@@ -34,11 +35,11 @@ class TestMixer:
         female_file = "magnolia/data/librispeech/authors/train-clean-100-F.txt"
         male_file = "magnolia/data/librispeech/authors/train-clean-100-M.txt"
 
-        self.in_data_path_train = "/mnt/train/in/spec"
-        self.out_data_path_train = "/mnt/train/out/spec"
+        self.in_data_path_train = "Data/train/in/spec"
+        self.out_data_path_train = "Data/train/out/spec"
 
-        self.in_data_path_test = "/mnt/dev/in/spec"
-        self.out_data_path_test = "/mnt/dev/out/spec"
+        self.in_data_path_test = "Data/dev/in/spec"
+        self.out_data_path_test = "Data/dev/out/spec"
 
         #Collect males dirs:
         male_speaker_dirs = [];
@@ -92,8 +93,8 @@ class TestMixer:
         self.indices_train_it = iter(self.indices_train_it)
 
         self.current_sample_train = next(self.indices_train_it)
-        self.current_sample_train_in = np.load(self.in_data_path_train + str(self.current_sample_train) + '.npy')
-        self.current_sample_train_out = np.load(self.out_data_path_train + str(self.current_sample_train) + '.npy')
+        #self.current_sample_train_in = np.load(self.in_data_path_train + str(self.current_sample_train) + '.npy')
+        #self.current_sample_train_out = np.load(self.out_data_path_train + str(self.current_sample_train) + '.npy')
 
         self.indices_test_it = [x - self.sep for x in self.indices_test]
         #works in place
@@ -101,8 +102,64 @@ class TestMixer:
         self.indices_test_it = iter(self.indices_test_it)
 
         self.current_sample_test = next(self.indices_test_it)
-        self.current_sample_test_in = np.load(self.in_data_path_test + str(self.current_sample_test) + '.npy')
-        self.current_sample_test_out = np.load(self.out_data_path_test + str(self.current_sample_test) + '.npy')
+        #self.current_sample_test_in = np.load(self.in_data_path_test + str(self.current_sample_test) + '.npy')
+        #self.current_sample_test_out = np.load(self.out_data_path_test + str(self.current_sample_test) + '.npy')
+
+    def mix_and_save_record(self, indices, filename):
+
+        writer = tf.python_io.TFRecordWriter(filename)
+        for i, j in indices:
+            sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
+            target1 = self.normalise_divmax(np.array(sound1.get_array_of_samples()))
+
+            sound2 = AudioSegment.from_file(self.female_audios[j],format='flac')
+            target2 = self.normalise_divmax(np.array(sound2.get_array_of_samples()))
+
+            length = min(len(target1), len(target2))
+
+            freqs_target1, bins_target1, Pxx_target1 = stft(target1[:length])
+            freqs_target2, bins_target2, Pxx_target2 = stft(target2[:length])
+            mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1) + 1e-100)
+
+            Fxx_mixed = Pxx_target1 + Pxx_target2
+
+            #slice the sample
+            for k in range(0,Fxx_mixed.shape[1]//self.spec_length):
+                in_spec = np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, k*self.spec_length:(k+1)*self.spec_length], 0, -1)
+                mask = np.moveaxis(np.array([mask_target])[:, :self.nb_freq, k*self.spec_length:(k+1)*self.spec_length], 0, -1)
+
+                example = tf.train.Example(features=tf.train.Features(feature={
+                    'mixed_abs': tf.train.Feature(float_list=tf.train.FloatList(value=np.abs(in_spec).flatten())),
+                    'mixed_phase': tf.train.Feature(float_list=tf.train.FloatList(value=np.angle(in_spec).flatten())),
+                    'mask': tf.train.Feature(float_list=tf.train.FloatList(value=mask.flatten()))}))
+
+                writer.write(example.SerializeToString())
+        writer.close()
+
+    def build_dataset_tfrecord(self):
+
+        indices_iterator = list(self.indices_train)
+        random.shuffle(indices_iterator)
+
+        indices = list(enumerate(indices_iterator))
+        p = Pool(9)
+        n_files_record = 50
+        #Create records using 50 files in each
+        #enumerate to take different females for the males
+        p.starmap(self.mix_and_save_record, [(indices[n_files_record*k:n_files_record*k+n_files_record],\
+            self.in_data_path_train + str(k)+ ".tfrecords")\
+            for k in range(0,round(len(indices_iterator)/n_files_record + 0.5))])
+
+
+        indices_iterator = list(self.indices_test)
+        random.shuffle(indices_iterator)
+
+        indices = list(enumerate(indices_iterator))
+        #enumerate to take different females for the males
+        p.starmap(self.mix_and_save_record, [(indices[n_files_record*k:n_files_record*k+n_files_record],\
+            self.in_data_path_test + str(k)+ ".tfrecords")\
+            for k in range(0,round(len(indices_iterator)/n_files_record + 0.5))])
+
 
     def mix_and_save(self, i, j, in_path, out_path):
         sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
