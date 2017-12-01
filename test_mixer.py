@@ -22,9 +22,9 @@ class TestMixer:
         female_file = "magnolia/data/librispeech/authors/train-clean-100-F.txt"
         male_file = "magnolia/data/librispeech/authors/train-clean-100-M.txt"
 
-        self.data_path_train = "Data/train/spec"
+        self.data_path_train = "/mnt/train/spec"
 
-        self.data_path_test = "Data/dev/spec"
+        self.data_path_test = "/mnt/dev/spec"
 
         #Collect males dirs:
         male_speaker_dirs = [];
