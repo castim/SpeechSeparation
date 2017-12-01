@@ -209,5 +209,8 @@ class LibriSpeechMixer:
     def normalise_divmax(self, samples):
 
         normalised = samples / max(samples)
+        normalised = samples / 32767
+
+        normalised = samples / np.sqrt(np.mean(samples**2))
 
         return normalised
