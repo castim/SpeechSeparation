@@ -73,6 +73,7 @@ class TestMixer:
             self.build_dataset_tfrecord()
 
     def mix_and_save_record(self, indices, filename):
+        nb_seg = 0
 
         writer = tf.python_io.TFRecordWriter(filename)
         for i, j in indices:
@@ -92,6 +93,7 @@ class TestMixer:
 
             #slice the sample
             for k in range(0,Fxx_mixed.shape[1]//self.spec_length):
+                nb_seg += 1
                 in_spec = np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, k*self.spec_length:(k+1)*self.spec_length], 0, -1)
                 mask = np.moveaxis(np.array([mask_target])[:, :self.nb_freq, k*self.spec_length:(k+1)*self.spec_length], 0, -1)
 
@@ -102,6 +104,7 @@ class TestMixer:
 
                 writer.write(example.SerializeToString())
         writer.close()
+        return nb_seg
 
     def build_dataset_tfrecord(self):
 
@@ -113,19 +116,22 @@ class TestMixer:
         n_files_record = 50
         #Create records using 50 files in each
         #enumerate to take different females for the males
-        p.starmap(self.mix_and_save_record, [(indices[n_files_record*k:n_files_record*k+n_files_record],\
+        nb_segs = p.starmap(self.mix_and_save_record, [(indices[n_files_record*k:n_files_record*k+n_files_record],\
             self.data_path_train + str(k)+ ".tfrecords")\
             for k in range(0,round(len(indices_iterator)/n_files_record + 0.5))])
 
+        print(sum(nb_segs))
 
         indices_iterator = list(self.indices_test)
         random.shuffle(indices_iterator)
 
         indices = list(enumerate(indices_iterator))
         #enumerate to take different females for the males
-        p.starmap(self.mix_and_save_record, [(indices[n_files_record*k:n_files_record*k+n_files_record],\
+        nb_segs = p.starmap(self.mix_and_save_record, [(indices[n_files_record*k:n_files_record*k+n_files_record],\
             self.data_path_test + str(k)+ ".tfrecords")\
             for k in range(0,round(len(indices_iterator)/n_files_record + 0.5))])
+
+        print(sum(nb_segs))
 
     def normalise_divmax(self, samples):
 
