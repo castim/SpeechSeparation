@@ -11,6 +11,8 @@ class TestMixer:
     #The length of the spectrogram we take
     spec_length = 128
     nb_freq = 128
+    nb_seg_train = 115071
+    nb_seg_test = 28550
 
     def __init__(self, nbSamples = float("inf"), nbSpeakers = float("inf"), dataset_built=True):
         self.male_audios = []
@@ -135,6 +137,10 @@ class TestMixer:
 
     def normalise_divmax(self, samples):
 
-        normalised = samples / max(samples)
+        #normalised = samples / max(samples)
+        #normalised = samples / 32767
+        
+        
+        normalised = samples / np.sqrt(np.mean(samples.astype('int32')**2))
 
         return normalised
