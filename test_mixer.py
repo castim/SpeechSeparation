@@ -139,8 +139,8 @@ class TestMixer:
 
         #normalised = samples / max(samples)
         #normalised = samples / 32767
-        
-        
+
+
         normalised = samples / np.sqrt(np.mean(samples.astype('int32')**2))
 
         return normalised
