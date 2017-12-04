@@ -9,7 +9,7 @@ import tensorflow as tf
 class TestMixer:
 
     #The length of the spectrogram we take
-    spec_length = 128
+    spec_length = 512
     nb_freq = 128
     nb_seg_train = 115071
     nb_seg_test = 28550
@@ -96,8 +96,8 @@ class TestMixer:
             #slice the sample
             for k in range(0,Fxx_mixed.shape[1]//self.spec_length):
                 nb_seg += 1
-                in_spec = np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, k*self.spec_length:(k+1)*self.spec_length], 0, -1)
-                mask = np.moveaxis(np.array([mask_target])[:, :self.nb_freq, k*self.spec_length:(k+1)*self.spec_length], 0, -1)
+                in_spec = np.transpose(Fxx_mixed[:self.nb_freq, k*self.spec_length:(k+1)*self.spec_length])
+                mask = np.transpose(mask_target[:self.nb_freq, k*self.spec_length:(k+1)*self.spec_length])
 
                 example = tf.train.Example(features=tf.train.Features(feature={
                     'mixed_abs': tf.train.Feature(float_list=tf.train.FloatList(value=np.abs(in_spec).flatten())),
