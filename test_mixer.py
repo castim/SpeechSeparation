@@ -11,8 +11,8 @@ class TestMixer:
     #The length of the spectrogram we take
     spec_length = 512
     nb_freq = 128
-    nb_seg_train = 24536
-    nb_seg_test = 6064
+    nb_seg_train = 24476
+    nb_seg_test = 6123
 
     def __init__(self, nbSamples = float("inf"), nbSpeakers = float("inf"), dataset_built=True):
         self.male_audios = []

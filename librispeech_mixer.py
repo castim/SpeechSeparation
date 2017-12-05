@@ -11,8 +11,8 @@ class LibriSpeechMixer:
     #The length of the spectrogram we take
     spec_length = 512
     nb_freq = 128
-    nb_seg_train = 115071
-    nb_seg_test = 28550
+    nb_seg_train = 30502
+    nb_seg_test = 829
 
     def __init__(self, train = True, nbSamples = float("inf"), nbSpeakers = float("inf"), dataset_built=True):
         self.male_audios = []
