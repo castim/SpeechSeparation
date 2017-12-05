@@ -25,14 +25,14 @@ class LibriSpeechMixer:
             female_file = "magnolia/data/librispeech/authors/train-clean-100-F.txt"
             male_file = "magnolia/data/librispeech/authors/train-clean-100-M.txt"
 
-            self.data_path = "Data/train/spec"
+            self.data_path = "/mnt/train/spec"
         else:
             audio_dir = "Data/LibriSpeech/dev-clean/"
 
             female_file = "magnolia/data/librispeech/authors/dev-clean-F.txt"
             male_file = "magnolia/data/librispeech/authors/dev-clean-M.txt"
 
-            self.data_path = "Data/dev/spec"
+            self.data_path = "/mnt/dev/spec"
 
         #Collect males dirs, with the good numbers of speakers:
         male_speaker_dirs = [];
