@@ -1,13 +1,10 @@
 from __future__ import absolute_import, division, print_function
 
-import matplotlib.pyplot as plt
-%matplotlib inline
-
 import numpy as np
 import tensorflow as tf
 import utils
 from scipy.signal import spectrogram, istft
-from test_mixer import TestMixer
+from librispeech_mixer import LibriSpeechMixer
 from keras.layers import Input, Dense, Conv1D, MaxPooling2D, Conv2DTranspose, UpSampling2D, Reshape, Flatten, Dropout, BatchNormalization
 from tensorflow.contrib.layers import flatten
 import IPython
@@ -19,7 +16,7 @@ tf.reset_default_graph()
 K.set_learning_phase(1) #set learning phase
 
 #Create the LibriSpeech mixer
-mixer = TestMixer(dataset_built=True)
+mixer = LibriSpeechMixer(dataset_built=True)
 
 #parse function to get data from the dataset correctly
 def _parse_function(example_proto):
@@ -88,7 +85,7 @@ with tf.variable_scope('convLayer1'):
 print('Model consits of ', utils.num_params(), 'trainable parameters.')
 
 # restricting memory usage, TensorFlow is greedy and will use all memory otherwise
-gpu_opts = tf.GPUOptions(per_process_gpu_memory_fraction=1.0)
+gpu_opts = tf.GPUOptions(per_process_gpu_memory_fraction=0.99)
 """## Launch TensorBoard, and visualize the TF graph
 with tf.Session(config=tf.ConfigProto(gpu_options=gpu_opts)) as sess:
     tmp_def = utils.rename_nodes(sess.graph_def, lambda s:"/".join(s.split('_',1)))
@@ -187,101 +184,5 @@ def trainingLoop():
 
         save_path = saver.save(sess, "./model.ckpt")
 
-        #Display how the model perform, mask and sound
-        x_batch, y_batch, phase = sess.run(iterator.get_next())
-        phase = np.transpose(phase[0,:,:])
-        x_batch = np.transpose(x_batch)
-        y_batch = np.transpose(y_batch)
-        y_pred = np.transpose(sess.run(fetches=y))
-
-        sp_y1_targ = np.multiply(x_batch[0,:,:],y_batch[0,:,:])
-        sp_y1_rec = np.multiply(x_batch[0,:,:],y_pred[0,:,:])
-        sp_y2_targ = np.multiply((np.ones(x_batch[0,:,:].shape)-y_batch[0,:,:]), x_batch[0,:,:])
-        sp_y2_rec = np.multiply((np.ones(x_batch[0,:,:].shape)-y_pred[0,:,:]), x_batch[0,:,:])
-
-        sp_y1_rec_phase = []
-        for i in range(len(sp_y1_rec)):
-            rec_line = []
-            for n in range(len(sp_y1_rec[0])) :
-                rec_line.append( sp_y1_rec[i][n]*np.cos(phase[i][n]) + 1j*sp_y1_rec[i][n]*np.sin(phase[i][n]) )
-
-            sp_y1_rec_phase.append(rec_line)
-
-        sp_y2_rec_phase = []
-        for i in range(len(sp_y2_rec)):
-            rec_line = []
-            for n in range(len(sp_y2_rec[0])) :
-                rec_line.append( sp_y2_rec[i][n]*np.cos(phase[i][n]) + 1j*sp_y2_rec[i][n]*np.sin(phase[i][n]) )
-
-            sp_y2_rec_phase.append(rec_line)
-
-        sp_y1_targ_phase = []
-        for i in range(len(sp_y1_targ)):
-            rec_line = []
-            for n in range(len(sp_y1_targ[0])) :
-                rec_line.append( sp_y1_targ[i][n]*np.cos(phase[i][n]) + 1j*sp_y1_targ[i][n]*np.sin(phase[i][n]) )
-
-            sp_y1_targ_phase.append(rec_line)
-
-        sp_y2_targ_phase = []
-        for i in range(len(sp_y2_targ)):
-            rec_line = []
-            for n in range(len(sp_y2_targ[0])) :
-                rec_line.append(sp_y2_targ[i][n]*np.cos(phase[i][n]) + 1j*sp_y2_targ[i][n]*np.sin(phase[i][n]) )
-
-            sp_y2_targ_phase.append(rec_line)
-
-        framerate=16000
-        print(sp_y1_targ_phase)
-        t1, y1_targ = istft(sp_y1_targ_phase, fs=framerate)
-        print('Speaker A target')
-        IPython.display.display(IPython.display.Audio(y1_targ,rate=framerate))
-
-        t1, y1_rec = istft(sp_y1_rec_phase, fs=framerate)
-        print('Speaker A prediction')
-        IPython.display.display(IPython.display.Audio(y1_rec,rate=framerate))
-
-        t2, y2_targ = istft(sp_y2_targ_phase, fs=framerate)
-        print('Speaker B target')
-        IPython.display.display(IPython.display.Audio(y2_targ,rate=framerate))
-
-        t2, y2_rec = istft(sp_y2_rec_phase, fs=framerate)
-        print('Speaker B prediction')
-        IPython.display.display(IPython.display.Audio(y2_rec,rate=framerate))
-
-
-        plt.pcolormesh(10 * np.log10(x_batch[0,:,:]+1e-10))
-        plt.axis('tight')
-        plt.ylabel('Frequency [Hz]')
-        plt.xlabel('Time [sec]')
-        plt.title('Input')
-        plt.colorbar()
-        plt.show()
-
-
-        plt.pcolormesh(y_batch[0,:,:])
-        plt.axis('tight')
-        plt.ylabel('Frequency [Hz]')
-        plt.xlabel('Time [sec]')
-        plt.title('Real mask')
-        plt.colorbar()
-        plt.show()
-
-        plt.pcolormesh(y_pred[0,:,:])
-        plt.axis('tight')
-        plt.ylabel('Frequency [Hz]')
-        plt.xlabel('Time [sec]')
-        plt.title('Predicted mask')
-        plt.colorbar()
-        plt.show()
-
 
 trainingLoop();
-
-
-
-epoch = np.arange(len(train_loss))
-plt.figure()
-plt.plot(epoch, train_loss,'r', epoch, valid_loss,'b')
-plt.legend(['Train Loss','Val Loss'], loc=4)
-plt.xlabel('Epochs'), plt.ylabel('Loss')
