@@ -3,27 +3,21 @@ import numpy as np
 from scipy.signal import spectrogram, stft, istft
 import random
 from pydub import AudioSegment
+from multiprocessing import Pool
+import tensorflow as tf
 
 class LibriSpeechMixer:
 
-    #If you want to avoid scratching the ssd
-    #sudo mount -t tmpfs -o size=500m tmpfs tmpMixed
-    output_dir = "tmpMixed/"
-
     #The length of the spectrogram we take
-    spec_length = 128
+    spec_length = 512
     nb_freq = 128
+    nb_seg_train = 115071
+    nb_seg_test = 28550
 
-    # Difference in the speech signal levels in dB.
-    # Assumes that both audio files have been correctly normalized and have the same speech signal level initially.
-
-    def __init__(self, train=True, nbSamples = float("inf")):
+    def __init__(self, train = True, nbSamples = float("inf"), nbSpeakers = float("inf"), dataset_built=True):
         self.male_audios = []
         self.female_audios = []
         self.indices = []
-        self.indices_it = None
-        self.epochs_completed = 0
-        self.index_in_epoch = 0
 
         if train:
             audio_dir = "Data/LibriSpeech/train-clean-100/"
@@ -31,37 +25,45 @@ class LibriSpeechMixer:
             female_file = "magnolia/data/librispeech/authors/train-clean-100-F.txt"
             male_file = "magnolia/data/librispeech/authors/train-clean-100-M.txt"
 
-            self.in_data_path = "Data/train/in/spec"
-            self.out_data_path = "Data/train/out/spec"
+            self.data_path = "Data/train/spec"
         else:
             audio_dir = "Data/LibriSpeech/dev-clean/"
 
             female_file = "magnolia/data/librispeech/authors/dev-clean-F.txt"
             male_file = "magnolia/data/librispeech/authors/dev-clean-M.txt"
 
-            self.in_data_path = "Data/dev/in/spec"
-            self.out_data_path = "Data/dev/out/spec"
+            self.data_path = "Data/dev/spec"
 
-        #Collect males dirs:
+        #Collect males dirs, with the good numbers of speakers:
         male_speaker_dirs = [];
         with open(male_file, "r") as f:
 
+            i = 0
             for folder in f:
                 folder = folder[:-1]
                 male_speaker_dirs[0:0] = glob.glob(os.path.join(audio_dir + folder, '*'))
+                i += 1
+                if i >= nbSpeakers:
+                    break;
 
-        #Collect females files:
+        #Collect females dirs:
         female_speaker_dirs = [];
         with open(female_file, "r") as f:
 
+            i= 0
             for folder in f:
                 folder = folder[:-1]
                 female_speaker_dirs[0:0] = glob.glob(os.path.join(audio_dir + folder, '*'))
+                i += 1
+                if i >= nbSpeakers:
+                    break;
 
+        #Bring all male audios in one list
         for male_dir in male_speaker_dirs:
 
             self.male_audios[0:0] = glob.glob(os.path.join(male_dir, '*.flac'))
 
+        #Bring all female audios in one list
         self.male_audios = np.random.permutation(self.male_audios)
 
         for female_dir in female_speaker_dirs:
@@ -69,62 +71,17 @@ class LibriSpeechMixer:
 
         self.female_audios = np.random.permutation(self.female_audios)
 
-        self.indices = range(0,min(nbSamples, len(self.male_audios), len(self.female_audios)))
+        maxInd = min(nbSamples, len(self.male_audios), len(self.female_audios))
+        self.indices = range(0,maxInd)
 
-        #The list function performs a shallow copy
-        self.indices_it = list(self.indices)
+        if not dataset_built:
+            self.build_dataset_tfrecord()
 
-        #works in place
-        random.shuffle(self.indices_it)
+    def mix_and_save_record(self, indices, filename):
+        nb_seg = 0
 
-        self.indices_it = iter(self.indices_it)
-
-    def next(self):
-
-        try:
-            i = next(self.indices_it)
-            self.index_in_epoch += 1
-
-        except StopIteration:
-            #The list function performs a shallow copy
-            self.indices_it = list(self.indices)
-
-            #works in place
-            random.shuffle(self.indices_it)
-            self.indices_it = iter(self.indices_it)
-
-            self.epochs_completed += 1
-            self.index_in_epoch = 0
-            i = next(self.indices_it)
-
-        sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
-        target1 = self.normalise_divmax(np.array(sound1.get_array_of_samples()))
-
-        sound2 = AudioSegment.from_file(self.female_audios[i],format='flac')
-        target2 = self.normalise_divmax(np.array(sound2.get_array_of_samples()))
-
-        length = min(len(target1), len(target2))
-
-        freqs_target1, bins_target1, Pxx_target1 = stft(target1[:length])
-        freqs_target2, bins_target2, Pxx_target2 = stft(target2[:length])
-        mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1) + 1e-100)
-
-        Fxx_mixed = Pxx_target1 + Pxx_target2
-
-        Pxx_mixed = np.abs(Fxx_mixed)
-        phase_mixed = np.angle(Fxx_mixed)
-
-        return np.moveaxis(np.array([Pxx_mixed])[:, :, :self.spec_length], 0, -1), \
-               np.moveaxis(np.array([mask_target])[:, :, :self.spec_length], 0, -1), \
-               np.moveaxis(np.array([phase_mixed])[:, :, :self.spec_length], 0, -1)
-
-    def build_dataset(self):
-        indices_iterator = list(self.indices)
-        random.shuffle(indices_iterator)
-
-        #enumerate to take different females for the males
-        for i, j in enumerate(indices_iterator):
-
+        writer = tf.python_io.TFRecordWriter(filename)
+        for i, j in indices:
             sound1 = AudioSegment.from_file(self.male_audios[i], format='flac')
             target1 = self.normalise_divmax(np.array(sound1.get_array_of_samples()))
 
@@ -139,78 +96,43 @@ class LibriSpeechMixer:
 
             Fxx_mixed = Pxx_target1 + Pxx_target2
 
-            np.save(self.in_data_path + str(i), np.moveaxis(np.array([Fxx_mixed])[:, :, :self.spec_length], 0, -1))
-            np.save(self.out_data_path + str(i), np.moveaxis(np.array([mask_target])[:, :, :self.spec_length], 0, -1))
+            #slice the sample
+            for k in range(0,Fxx_mixed.shape[1]//self.spec_length):
+                nb_seg += 1
+                in_spec = np.moveaxis(np.array([Fxx_mixed])[:, :self.nb_freq, k*self.spec_length:(k+1)*self.spec_length], 0, -1)
+                mask = np.moveaxis(np.array([mask_target])[:, :self.nb_freq, k*self.spec_length:(k+1)*self.spec_length], 0, -1)
 
-    def load_dataset(self):
-        self.in_data = np.empty((len(self.indices), self.nb_freq, self.spec_length, 1))
-        self.out_data = np.empty((len(self.indices), self.nb_freq, self.spec_length, 1))
+                example = tf.train.Example(features=tf.train.Features(feature={
+                    'mixed_abs': tf.train.Feature(float_list=tf.train.FloatList(value=np.abs(in_spec).flatten())),
+                    'mixed_phase': tf.train.Feature(float_list=tf.train.FloatList(value=np.angle(in_spec).flatten())),
+                    'mask': tf.train.Feature(float_list=tf.train.FloatList(value=mask.flatten()))}))
 
-        for i in self.indices:
-            self.in_data[i, :, :, :] = np.load(self.in_data_path + str(i) + ".npy")[:self.nb_freq, :, :]
-            self.out_data[i, :, :, :] = np.load(self.out_data_path + str(i) + ".npy")[:self.nb_freq, :, :]
+                writer.write(example.SerializeToString())
+        writer.close()
+        return nb_seg
 
+    def build_dataset_tfrecord(self):
 
-    def next_load_file(self):
-        try:
-            i = next(self.indices_it)
-            self.index_in_epoch += 1
+        indices_iterator = list(self.indices)
+        random.shuffle(indices_iterator)
 
-        except StopIteration:
-            #The list function performs a shallow copy
-            self.indices_it = list(self.indices)
+        indices = list(enumerate(indices_iterator))
+        p = Pool(9)
+        n_files_record = 50
+        #Create records using 50 files in each
+        #enumerate to take different females for the males
+        nb_segs = p.starmap(self.mix_and_save_record, [(indices[n_files_record*k:n_files_record*k+n_files_record],\
+            self.data_path + str(k)+ ".tfrecords")\
+            for k in range(0,round(len(indices_iterator)/n_files_record + 0.5))])
 
-            #works in place
-            random.shuffle(self.indices_it)
-            self.indices_it = iter(self.indices_it)
-
-            self.epochs_completed += 1
-            self.index_in_epoch = 0
-            i = next(self.indices_it)
-
-        Fxx_mixed = np.load(self.in_data_path + str(i) + ".npy")
-
-        return np.abs(Fxx_mixed), np.load(self.out_data_path + str(i) + ".npy"), np.angle(Fxx_mixed)
-
-    def next_mem(self):
-        try:
-            i = next(self.indices_it)
-            self.index_in_epoch += 1
-
-        except StopIteration:
-            #The list function performs a shallow copy
-            self.indices_it = list(self.indices)
-
-            #works in place
-            random.shuffle(self.indices_it)
-            self.indices_it = iter(self.indices_it)
-
-            self.epochs_completed += 1
-            self.index_in_epoch = 0
-            i = next(self.indices_it)
-
-        return np.abs(self.in_data[i]),self.out_data[i], np.angle(self.in_data[i])
-
-    def get_batch(self, size=32):
-
-        batchIn = np.empty([size, self.nb_freq, self.spec_length, 1])
-        batchOut = np.empty([size, self.nb_freq, self.spec_length, 1])
-        batchPhase = np.empty([size, self.nb_freq, self.spec_length, 1])
-
-        for i in range(0,size):
-            sample = self.next_load_file()
-            batchIn[i, :, :, :] = sample[0][:self.nb_freq,:,:]
-            batchOut[i, :, :, :] = sample[1][:self.nb_freq,:,:]
-            batchPhase[i, :, :, :] = sample[2][:self.nb_freq, :, :]
-
-        return batchIn, batchOut, batchPhase
-
+        print(sum(nb_segs))
 
     def normalise_divmax(self, samples):
 
-        normalised = samples / max(samples)
-        normalised = samples / 32767
+        #normalised = samples / max(samples)
+        #normalised = samples / 32767
 
-        normalised = samples / np.sqrt(np.mean(samples**2))
+
+        normalised = samples / np.sqrt(np.mean(samples.astype('int32')**2))
 
         return normalised
