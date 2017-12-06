@@ -95,22 +95,27 @@ class LibriSpeechMixer:
             Fxx_mixed = Pxx_target1 + Pxx_target2
 
             mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1) + 1e-100)
-            real_mask_target =  (np.real(Pxx_target1)*np.real(Fxx_mixed + np.imag(Pxx_target1)*np.imag(Fxx_mixed)) /
-                                 ( np.real(Pxx_target1)**2 + np.imag(Pxx_target1)**2 )
-            imag_mask_target =  (np.imag(Pxx_target1)*np.real(Fxx_mixed - np.real(Pxx_target1)*np.imag(Fxx_mixed)) /
-                                 ( np.real(Pxx_target1)**2 + np.imag(Pxx_target1)**2 )
+            real_mask_target = (np.real(Pxx_target1)*np.real(Fxx_mixed + np.imag(Pxx_target1)*np.imag(Fxx_mixed))) / (np.real(Pxx_target1)**2 + np.imag(Pxx_target1)**2)
+            imag_mask_target = (np.imag(Pxx_target1)*np.real(Fxx_mixed - np.real(Pxx_target1)*np.imag(Fxx_mixed))) / (np.real(Pxx_target1)**2 + np.imag(Pxx_target1)**2)
 
 
             #slice the sample
             for k in range(0,Fxx_mixed.shape[1]//self.spec_length):
                 nb_seg += 1
                 in_spec = np.transpose(Fxx_mixed[:self.nb_freq, k*self.spec_length:(k+1)*self.spec_length])
-                mask = np.transpose(mask_target[:self.nb_freq, k*self.spec_length:(k+1)*self.spec_length])
+                #mask = np.transpose(mask_target[:self.nb_freq, k*self.spec_length:(k+1)*self.spec_length])
+                real_mask = np.transpose(real_mask_target[:self.nb_freq, k*self.spec_length:(k+1)*self.spec_length])
+                imag_mask = np.transpose(imag_mask_target[:self.nb_freq, k*self.spec_length:(k+1)*self.spec_length])
 
+                #example = tf.train.Example(features=tf.train.Features(feature={
+                #    'mixed_abs': tf.train.Feature(float_list=tf.train.FloatList(value=np.abs(in_spec).flatten())),
+                #    'mixed_phase': tf.train.Feature(float_list=tf.train.FloatList(value=np.angle(in_spec).flatten())),
+                #    'mask': tf.train.Feature(float_list=tf.train.FloatList(value=mask.flatten()))}))
                 example = tf.train.Example(features=tf.train.Features(feature={
-                    'mixed_abs': tf.train.Feature(float_list=tf.train.FloatList(value=np.abs(in_spec).flatten())),
-                    'mixed_phase': tf.train.Feature(float_list=tf.train.FloatList(value=np.angle(in_spec).flatten())),
-                    'mask': tf.train.Feature(float_list=tf.train.FloatList(value=mask.flatten()))}))
+                     'mixed_abs': tf.train.Feature(float_list=tf.train.FloatList(value=np.abs(in_spec).flatten())),
+                     'mixed_phase': tf.train.Feature(float_list=tf.train.FloatList(value=np.angle(in_spec).flatten())),
+                     'real_mask': tf.train.Feature(float_list=tf.train.FloatList(value=real_mask.flatten())),
+                     'imag_mask': tf.train.Feature(float_list=tf.train.FloatList(value=imag_mask.flatten()))}))
 
                 writer.write(example.SerializeToString())
         writer.close()
