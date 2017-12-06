@@ -61,20 +61,24 @@ with tf.variable_scope('convLayer1'):
     #batch_norm = BatchNormalization(axis=2)
 
     #x = batch_norm(x_pl)
-
+    dropout = Dropout(0.2)
+    x = dropout(x_pl)
     conv1 = Conv1D(round(5*filters/6), kernel_size, padding=padding, activation='relu')
     print('x_pl \t\t', x_pl.get_shape())
-    x = conv1(x_pl)
+    x = conv1(x)
     print('conv1 \t\t', x.get_shape())
 
     #batch_norm = BatchNormalization(axis=2)
 
     #x = batch_norm(x)
-
+    dropout = Dropout(0.2)
+    x = dropout(x)
     conv2 = Conv1D(round(4*filters/6), kernel_size, padding=padding, activation='relu')
     x = conv2(x)
     print('conv2 \t\t', x.get_shape())
-
+    
+    dropout = Dropout(0.2)
+    x = dropout(x)
     conv3 = Conv1D(round(filters/2), kernel_size, padding=padding, activation='relu')
     x = conv3(x)
     print('conv3 \t\t', x.get_shape())
@@ -99,6 +103,13 @@ with tf.variable_scope('loss'):
     y_pred1 = 10*tf.log(tf.multiply(x_pl, y)+1e-10)/np.log(10)
     y_pred2 = 10*tf.log(tf.multiply(x_pl, (1-y))+1e-10)/np.log(10)
     mean_square_error = tf.reduce_mean((y_target1 - y_pred1)**2) + tf.reduce_mean((y_target2 - y_pred2)**2)
+    
+    #L2 regularization
+    reg_scale = 0.01
+    regularize = tf.contrib.layers.l2_regularizer(reg_scale)
+    params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+    reg_term = sum([regularize(param) for param in params])
+    mean_square_error += reg_term
 
 
 
@@ -123,7 +134,7 @@ print('Forward pass successful!')
 
 #Training Loop
 
-max_epochs = 100
+max_epochs = 50
 
 
 valid_loss = []
