@@ -123,7 +123,7 @@ print('Forward pass successful!')
 
 #Training Loop
 
-max_epochs = 25
+max_epochs = 100
 
 
 valid_loss = []
