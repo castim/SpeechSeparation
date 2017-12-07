@@ -12,6 +12,15 @@ from os import listdir
 from keras import backend as K
 
 
+def mask_to_outputs(mixed_real, mixed_imag, scaled_mask_real, scaled_mask_imag, C, K):
+    unscaled_mask_real = -tf.log((K - scaled_mask_real)/(K + scaled_mask_real))/C
+    unscaled_mask_imag = -tf.log((K - scaled_mask_imag)/(K + scaled_mask_imag))/C
+
+    sep1 = (unscaled_mask_real + 1j * unscaled_mask_imag) * (mixed_real + 1j * mixed_imag)
+    sep2 = mixed_real - sep1
+
+    return sep1, sep2
+
 tf.reset_default_graph()
 K.set_learning_phase(1) #set learning phase
 
@@ -20,12 +29,14 @@ mixer = LibriSpeechMixer(dataset_built=True)
 
 #parse function to get data from the dataset correctly
 def _parse_function(example_proto):
-    keys_to_features = {'mixed_abs':tf.FixedLenFeature((mixer.spec_length, mixer.nb_freq), tf.float32),
-                        'mask': tf.FixedLenFeature((mixer.spec_length, mixer.nb_freq), tf.float32),
-                        'mixed_phase':tf.FixedLenFeature((mixer.spec_length, mixer.nb_freq), tf.float32)
+    keys_to_features = {'mixed_real':tf.FixedLenFeature((mixer.spec_length, mixer.nb_freq), tf.float32),
+                        'mixed_imag':tf.FixedLenFeature((mixer.spec_length, mixer.nb_freq), tf.float32),
+                        'mask_real': tf.FixedLenFeature((mixer.spec_length, mixer.nb_freq), tf.float32),
+                        'mask_imag': tf.FixedLenFeature((mixer.spec_length, mixer.nb_freq), tf.float32),
                         }
     parsed_features = tf.parse_single_example(example_proto, keys_to_features)
-    return parsed_features['mixed_abs'], parsed_features['mask'], parsed_features['mixed_phase']
+    return np.concatenate(parsed_features['mixed_real'], parsed_features['mixed_imag'], axis=1),\
+            np.concatenate(parsed_features['mask_real'], parsed_features['mask_imag'], axis=1)
 
 #Create the dataset object
 batch_size = 64
@@ -38,7 +49,7 @@ dataset = dataset.shuffle(buffer_size=2500)
 dataset = dataset.batch(batch_size)
 dataset = dataset.repeat()
 iterator = dataset.make_initializable_iterator()
-x_pl, y_pl,_ = iterator.get_next()
+x_pl, y_pl = iterator.get_next()
 
 training_filenames = ["/mnt/train/" + filename for filename in listdir("/mnt/train/")]
 validation_filenames = ["/mnt/dev/" + filename for filename in listdir("/mnt/dev/")]
@@ -47,7 +58,7 @@ validation_filenames = ["/mnt/dev/" + filename for filename in listdir("/mnt/dev
 height, width, nchannels = mixer.nb_freq, mixer.spec_length, 1
 padding = 'same'
 
-filters = mixer.nb_freq
+filters = mixer.nb_freq*2
 kernel_size = 3
 kernel_size_2 = (2,20)
 pool_size_1 = (2,4)
@@ -61,8 +72,8 @@ with tf.variable_scope('convLayer1'):
     #batch_norm = BatchNormalization(axis=2)
 
     #x = batch_norm(x_pl)
-    dropout = Dropout(0.2)
-    x = dropout(x_pl)
+    #dropout = Dropout(0.2)
+    #x = dropout(x_pl)
     conv1 = Conv1D(round(5*filters/6), kernel_size, padding=padding, activation='relu')
     print('x_pl \t\t', x_pl.get_shape())
     x = conv1(x)
@@ -71,19 +82,19 @@ with tf.variable_scope('convLayer1'):
     #batch_norm = BatchNormalization(axis=2)
 
     #x = batch_norm(x)
-    dropout = Dropout(0.2)
-    x = dropout(x)
+    #dropout = Dropout(0.2)
+    #x = dropout(x)
     conv2 = Conv1D(round(4*filters/6), kernel_size, padding=padding, activation='relu')
     x = conv2(x)
     print('conv2 \t\t', x.get_shape())
-    
-    dropout = Dropout(0.2)
-    x = dropout(x)
+
+    #dropout = Dropout(0.2)
+    #x = dropout(x)
     conv3 = Conv1D(round(filters/2), kernel_size, padding=padding, activation='relu')
     x = conv3(x)
     print('conv3 \t\t', x.get_shape())
 
-    enc_cell = tf.nn.rnn_cell.GRUCell(mixer.nb_freq, activation = tf.sigmoid)
+    enc_cell = tf.nn.rnn_cell.GRUCell(mixer.nb_freq*2, activation = tf.sigmoid)
     y, enc_state = tf.nn.dynamic_rnn(cell=enc_cell, inputs=x,
                                      dtype=tf.float32)
 print('Model consits of ', utils.num_params(), 'trainable parameters.')
@@ -98,19 +109,23 @@ with tf.Session(config=tf.ConfigProto(gpu_options=gpu_opts)) as sess:
 
 with tf.variable_scope('loss'):
     # The loss takes the amplitude of the output into account, in order to avoid taking care of noise
-    y_target1 = 10*tf.log(tf.multiply(x_pl, y_pl)+1e-10)/np.log(10)
-    y_target2 = 10*tf.log(tf.multiply(x_pl, (1-y_pl))+1e-10)/np.log(10)
-    y_pred1 = 10*tf.log(tf.multiply(x_pl, y)+1e-10)/np.log(10)
-    y_pred2 = 10*tf.log(tf.multiply(x_pl, (1-y))+1e-10)/np.log(10)
-    mean_square_error = tf.reduce_mean((y_target1 - y_pred1)**2) + tf.reduce_mean((y_target2 - y_pred2)**2)
-    
+    y_target1, y_target2 = mask_to_outputs(x_pl[:mixer.nb_freq, :], x_pl[mixer.nb_freq:, :],\
+                                            y_pl[:mixer.nb_freq, :], y_pl[mixer.nb_freq:, :], mixer.C, mixer.K)
+
+    y_pred1, y_pred2 = mask_to_outputs(x_pl[:mixer.nb_freq, :], x_pl[mixer.nb_freq:, :],\
+                                            y[:mixer.nb_freq, :], y[mixer.nb_freq:, :], mixer.C, mixer.K)
+    mean_square_error = tf.reduce_mean((tf.real(y_target1) - tf.real(y_pred1))**2) + \
+                                        (tf.real(y_target2) - tf.real(y_pred2))**2) + \
+                                        (tf.imag(y_target1) - tf.imag(y_pred1))**2) + \
+                                        (tf.imag(y_target2) - tf.imag(y_pred2))**2)
+
     #L2 regularization
-    reg_scale = 0.01
+    """reg_scale = 0.01
     regularize = tf.contrib.layers.l2_regularizer(reg_scale)
     params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
     reg_term = sum([regularize(param) for param in params])
     mean_square_error += reg_term
-
+    """
 
 
 with tf.variable_scope('training'):
