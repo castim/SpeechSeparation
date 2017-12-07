@@ -94,10 +94,11 @@ class LibriSpeechMixer:
             freqs_target2, bins_target2, Pxx_target2 = stft(target2[:length])
             Fxx_mixed = Pxx_target1 + Pxx_target2
 
-            mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1) + 1e-100)
-            real_mask_target = (np.real(Pxx_target1)*np.real(Fxx_mixed + np.imag(Pxx_target1)*np.imag(Fxx_mixed))) / (np.real(Pxx_target1)**2 + np.imag(Pxx_target1)**2)
-            imag_mask_target = (np.imag(Pxx_target1)*np.real(Fxx_mixed - np.real(Pxx_target1)*np.imag(Fxx_mixed))) / (np.real(Pxx_target1)**2 + np.imag(Pxx_target1)**2)
-
+            #mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1) + 1e-100)
+            real_mask = (np.real(Pxx_target1)*np.real(Fxx_mixed + np.imag(Pxx_target1)*np.imag(Fxx_mixed))) / (np.real(Pxx_target1)**2 + np.imag(Pxx_target1)**2)
+            real_mask_target = 10*(1-np.exp(-0.1*real_mask)) / (1+np.exp(-0.1*real_mask))
+            imag_mask = (np.imag(Pxx_target1)*np.real(Fxx_mixed - np.real(Pxx_target1)*np.imag(Fxx_mixed))) / (np.real(Pxx_target1)**2 + np.imag(Pxx_target1)**2)
+            imag_mask_target = 10*(1-np.exp(-0.1*imag_mask)) / (1+np.exp(-0.1*imag_mask))
 
             #slice the sample
             for k in range(0,Fxx_mixed.shape[1]//self.spec_length):
