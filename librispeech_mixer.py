@@ -98,9 +98,10 @@ class LibriSpeechMixer:
 
             #mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1) + 1e-100)
             real_mask = (np.real(Pxx_target1)*np.real(Fxx_mixed + np.imag(Pxx_target1)*np.imag(Fxx_mixed))) / (np.real(Pxx_target1)**2 + np.imag(Pxx_target1)**2)
-            real_mask_target = self.K*(1-np.exp(-self.C*real_mask)) / (1+np.exp(-self.C*real_mask))
+            #use tanh function to avoid overflow and divide c by 2 to have same expression as in paper
+            real_mask_target = self.K*np.tanh(self.C/2*real_mask)
             imag_mask = (np.imag(Pxx_target1)*np.real(Fxx_mixed - np.real(Pxx_target1)*np.imag(Fxx_mixed))) / (np.real(Pxx_target1)**2 + np.imag(Pxx_target1)**2)
-            imag_mask_target = self.K*(1-np.exp(-self.C*imag_mask)) / (1+np.exp(-self.C*imag_mask))
+            imag_mask_target = self.K*np.tanh(self.C/2*imag_mask)
 
             #slice the sample
             for k in range(0,Fxx_mixed.shape[1]//self.spec_length):
