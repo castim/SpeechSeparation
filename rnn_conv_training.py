@@ -10,7 +10,6 @@ from tensorflow.contrib.layers import flatten
 import IPython
 from os import listdir
 from keras import backend as K
-from separation import bss_eval_sources
 
 
 def mask_to_outputs(mixed_real, mixed_imag, scaled_mask_real, scaled_mask_imag, C, K):
@@ -121,8 +120,6 @@ with tf.variable_scope('loss'):
                                         (tf.real(y_target2) - tf.real(y_pred2))**2 + \
                                         (tf.imag(y_target1) - tf.imag(y_pred1))**2 + \
                                         (tf.imag(y_target2) - tf.imag(y_pred2))**2)
-    
-    eval_indexes = bss_eval_sources( np.array([y_target1, y_target2]), np.array([y_pred1, y_pred2]) )
 
     #L2 regularization
     """reg_scale = 0.01
@@ -158,8 +155,6 @@ max_epochs = 50
 valid_loss = []
 train_loss = []
 test_loss = []
-train_indexes = []
-valid_indexes = []
 
 
 def trainingLoop():
@@ -171,18 +166,16 @@ def trainingLoop():
 
         nb_batches_processed = 0
         nb_epochs = 0
+        _train_loss = []
         try:
 
             while nb_epochs < max_epochs:
-                _train_loss = []
-                _train_indexes = []
 
                 ## Run train op
-                fetches_train = [train_op, mean_square_error, eval_indexes]
+                fetches_train = [train_op, mean_square_error]
                 
-                _, _loss, _indexes = sess.run(fetches_train)
+                _, _loss = sess.run(fetches_train)
                 _train_loss.append(_loss)
-                _train_indexes.append([_indexes[0], _indexes[1], _indexes[2]])
 
                 nb_batches_processed += 1
 
@@ -192,29 +185,25 @@ def trainingLoop():
 
                     sess.run(iterator.initializer, feed_dict={filenames: validation_filenames})
                     _valid_loss = []
-                    _valid_indexes = []
                     train_loss.append(np.mean(_train_loss))
-                    train_indexes.append(np.mean(np.array(_train_indexes), axis = 0))
+                    _train_loss = []
 
-                    fetches_valid = [mean_square_error, eval_indexes]
+                    fetches_valid = [mean_square_error]
 
                     nb_test_batches_processed = 0
                     #Proceed to a whole testing epoch
                     while round(nb_test_batches_processed/mixer.nb_seg_test*batch_size-0.5) < 1:
 
-                        _loss, _indexes = sess.run(fetches_valid)
+                        _loss = sess.run(fetches_valid)
 
                         _valid_loss.append(_loss)
-                        _valid_indexes.append([_indexes[0], _indexes[1], _indexes[2]])
                         nb_test_batches_processed += 1
 
                     valid_loss.append(np.mean(_valid_loss))
-                    valid_indexes.append(np.mean(np.array(_valid_indexes), axis = 0))
 
 
                     print("Epoch {} : Train Loss {:6.3f}, Valid loss {:6.3f}".format(
-                        nb_epochs, train_loss[-1], valid_loss[-1]), "train indexes:", train_indexes[-1], 
-                          "valid indexes", valid_indexes[-1])
+                        nb_epochs, train_loss[-1], valid_loss[-1]))
                     sess.run(iterator.initializer, feed_dict={filenames: training_filenames})
 
         except KeyboardInterrupt:
