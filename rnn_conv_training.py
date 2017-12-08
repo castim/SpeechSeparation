@@ -10,14 +10,15 @@ from tensorflow.contrib.layers import flatten
 import IPython
 from os import listdir
 from keras import backend as K
+from separation import bss_eval_sources
 
 
 def mask_to_outputs(mixed_real, mixed_imag, scaled_mask_real, scaled_mask_imag, C, K):
-    unscaled_mask_real = -tf.log((K - scaled_mask_real)/(K + scaled_mask_real))/C
-    unscaled_mask_imag = -tf.log((K - scaled_mask_imag)/(K + scaled_mask_imag))/C
+    unscaled_mask_real = -tf.log((K - scaled_mask_real)/(K + scaled_mask_real+1e-10)+1e-30)/C
+    unscaled_mask_imag = -tf.log((K - scaled_mask_imag)/(K + scaled_mask_imag+1e-10)+1e-30)/C
 
-    sep1 = (unscaled_mask_real + 1j * unscaled_mask_imag) * (mixed_real + 1j * mixed_imag)
-    sep2 = mixed_real - sep1
+    sep1 = tf.multiply(tf.complex(unscaled_mask_real, unscaled_mask_imag), tf.complex(mixed_real, mixed_imag))
+    sep2 = tf.complex(mixed_real, mixed_imag) - sep1
 
     return sep1, sep2
 
@@ -35,8 +36,8 @@ def _parse_function(example_proto):
                         'mask_imag': tf.FixedLenFeature((mixer.spec_length, mixer.nb_freq), tf.float32),
                         }
     parsed_features = tf.parse_single_example(example_proto, keys_to_features)
-    return np.concatenate(parsed_features['mixed_real'], parsed_features['mixed_imag'], axis=1),\
-            np.concatenate(parsed_features['mask_real'], parsed_features['mask_imag'], axis=1)
+    return tf.concat([parsed_features['mixed_real'], parsed_features['mixed_imag']], axis=1),\
+            tf.concat([parsed_features['mask_real'], parsed_features['mask_imag']], axis=1)
 
 #Create the dataset object
 batch_size = 64
@@ -76,7 +77,7 @@ with tf.variable_scope('convLayer1'):
     #x = dropout(x_pl)
     conv1 = Conv1D(round(5*filters/6), kernel_size, padding=padding, activation='relu')
     print('x_pl \t\t', x_pl.get_shape())
-    x = conv1(x)
+    x = conv1(x_pl)
     print('conv1 \t\t', x.get_shape())
 
     #batch_norm = BatchNormalization(axis=2)
@@ -94,9 +95,10 @@ with tf.variable_scope('convLayer1'):
     x = conv3(x)
     print('conv3 \t\t', x.get_shape())
 
-    enc_cell = tf.nn.rnn_cell.GRUCell(mixer.nb_freq*2, activation = tf.sigmoid)
+    enc_cell = tf.nn.rnn_cell.GRUCell(mixer.nb_freq*2, activation = tf.tanh)
     y, enc_state = tf.nn.dynamic_rnn(cell=enc_cell, inputs=x,
                                      dtype=tf.float32)
+    y = y * mixer.K
 print('Model consits of ', utils.num_params(), 'trainable parameters.')
 
 # restricting memory usage, TensorFlow is greedy and will use all memory otherwise
@@ -109,24 +111,25 @@ with tf.Session(config=tf.ConfigProto(gpu_options=gpu_opts)) as sess:
 
 with tf.variable_scope('loss'):
     # The loss takes the amplitude of the output into account, in order to avoid taking care of noise
-    y_target1, y_target2 = mask_to_outputs(x_pl[:mixer.nb_freq, :], x_pl[mixer.nb_freq:, :],\
-                                            y_pl[:mixer.nb_freq, :], y_pl[mixer.nb_freq:, :], mixer.C, mixer.K)
+    y_target1, y_target2 = mask_to_outputs(x_pl[:, :, :mixer.nb_freq], x_pl[:, :, mixer.nb_freq:],\
+                                            y_pl[:, :, :mixer.nb_freq], y_pl[:, :, mixer.nb_freq:], mixer.C, mixer.K)
 
-    y_pred1, y_pred2 = mask_to_outputs(x_pl[:mixer.nb_freq, :], x_pl[mixer.nb_freq:, :],\
-                                            y[:mixer.nb_freq, :], y[mixer.nb_freq:, :], mixer.C, mixer.K)
-    mean_square_error = tf.reduce_mean((tf.real(y_target1) - tf.real(y_pred1))**2) + \
-                                        (tf.real(y_target2) - tf.real(y_pred2))**2) + \
-                                        (tf.imag(y_target1) - tf.imag(y_pred1))**2) + \
+    y_pred1, y_pred2 = mask_to_outputs(x_pl[:, :, :mixer.nb_freq], x_pl[:, :, mixer.nb_freq:],\
+                                            y[:, :, :mixer.nb_freq], y[:, :, mixer.nb_freq:], mixer.C, mixer.K)
+    
+    mean_square_error = tf.reduce_mean((tf.real(y_target1) - tf.real(y_pred1))**2 + \
+                                        (tf.real(y_target2) - tf.real(y_pred2))**2 + \
+                                        (tf.imag(y_target1) - tf.imag(y_pred1))**2 + \
                                         (tf.imag(y_target2) - tf.imag(y_pred2))**2)
+    
+    eval_indexes = bss_eval_sources( np.array([y_target1, y_target2]), np.array([y_pred1, y_pred2]) )
 
     #L2 regularization
     """reg_scale = 0.01
     regularize = tf.contrib.layers.l2_regularizer(reg_scale)
     params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
     reg_term = sum([regularize(param) for param in params])
-    mean_square_error += reg_term
-    """
-
+    mean_square_error += reg_term"""
 
 with tf.variable_scope('training'):
     # defining our optimizer
@@ -155,6 +158,8 @@ max_epochs = 50
 valid_loss = []
 train_loss = []
 test_loss = []
+train_indexes = []
+valid_indexes = []
 
 
 def trainingLoop():
@@ -170,12 +175,14 @@ def trainingLoop():
 
             while nb_epochs < max_epochs:
                 _train_loss = []
+                _train_indexes = []
 
                 ## Run train op
-                fetches_train = [train_op, mean_square_error]
-                _, _loss = sess.run(fetches_train)
-
+                fetches_train = [train_op, mean_square_error, eval_indexes]
+                
+                _, _loss, _indexes = sess.run(fetches_train)
                 _train_loss.append(_loss)
+                _train_indexes.append([_indexes[0], _indexes[1], _indexes[2]])
 
                 nb_batches_processed += 1
 
@@ -185,30 +192,36 @@ def trainingLoop():
 
                     sess.run(iterator.initializer, feed_dict={filenames: validation_filenames})
                     _valid_loss = []
+                    _valid_indexes = []
                     train_loss.append(np.mean(_train_loss))
+                    train_indexes.append(np.mean(np.array(_train_indexes), axis = 0))
 
-                    fetches_valid = [mean_square_error]
+                    fetches_valid = [mean_square_error, eval_indexes]
 
                     nb_test_batches_processed = 0
                     #Proceed to a whole testing epoch
                     while round(nb_test_batches_processed/mixer.nb_seg_test*batch_size-0.5) < 1:
 
-                        _loss = sess.run(fetches_valid)
+                        _loss, _indexes = sess.run(fetches_valid)
 
                         _valid_loss.append(_loss)
+                        _valid_indexes.append([_indexes[0], _indexes[1], _indexes[2]])
                         nb_test_batches_processed += 1
 
                     valid_loss.append(np.mean(_valid_loss))
+                    valid_indexes.append(np.mean(np.array(_valid_indexes), axis = 0))
 
 
                     print("Epoch {} : Train Loss {:6.3f}, Valid loss {:6.3f}".format(
-                        nb_epochs, train_loss[-1], valid_loss[-1]))
+                        nb_epochs, train_loss[-1], valid_loss[-1]), "train indexes:", train_indexes[-1], 
+                          "valid indexes", valid_indexes[-1])
                     sess.run(iterator.initializer, feed_dict={filenames: training_filenames})
 
         except KeyboardInterrupt:
             pass
 
         save_path = saver.save(sess, "./model.ckpt")
+        print("Model saved");
 
 
 trainingLoop();

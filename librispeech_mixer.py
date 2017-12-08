@@ -11,8 +11,8 @@ class LibriSpeechMixer:
     #The length of the spectrogram we take
     spec_length = 512
     nb_freq = 128
-    nb_seg_train = 30614
-    nb_seg_test = 790
+    nb_seg_train = 30596
+    nb_seg_test = 838
 
     def __init__(self, train = True, nbSamples = float("inf"), nbSpeakers = float("inf"), dataset_built=True, K=10, C=0.1):
         self.K = K
@@ -97,10 +97,10 @@ class LibriSpeechMixer:
             Fxx_mixed = Pxx_target1 + Pxx_target2
 
             #mask_target = np.abs(Pxx_target1) / (np.abs(Pxx_target2) + np.abs(Pxx_target1) + 1e-100)
-            real_mask = (np.real(Pxx_target1)*np.real(Fxx_mixed + np.imag(Pxx_target1)*np.imag(Fxx_mixed))) / (np.real(Pxx_target1)**2 + np.imag(Pxx_target1)**2)
+            real_mask = (np.real(Pxx_target1)*np.real(Fxx_mixed) + np.imag(Pxx_target1)*np.imag(Fxx_mixed)) / (np.real(Fxx_mixed)**2 + np.imag(Fxx_mixed)**2 + 1e-10)
             #use tanh function to avoid overflow and divide c by 2 to have same expression as in paper
             real_mask_target = self.K*np.tanh(self.C/2*real_mask)
-            imag_mask = (np.imag(Pxx_target1)*np.real(Fxx_mixed - np.real(Pxx_target1)*np.imag(Fxx_mixed))) / (np.real(Pxx_target1)**2 + np.imag(Pxx_target1)**2)
+            imag_mask = (np.imag(Pxx_target1)*np.real(Fxx_mixed) - np.real(Pxx_target1)*np.imag(Fxx_mixed)) / (np.real(Fxx_mixed)**2 + np.imag(Fxx_mixed)**2 + 1e-10)
             imag_mask_target = self.K*np.tanh(self.C/2*imag_mask)
 
             #slice the sample
