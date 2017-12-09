@@ -59,36 +59,33 @@ height, width, nchannels = mixer.nb_freq, mixer.spec_length, 1
 padding = 'same'
 
 filters = mixer.nb_freq*2
-kernel_size = 3
-kernel_size_2 = (2,20)
-pool_size_1 = (2,4)
-pool_size_2 = (4,4)
+kernel_size = 5
 
 print('Trace of the tensors shape as it is propagated through the network.')
 print('Layer name \t Output size')
 print('----------------------------')
 
 with tf.variable_scope('convLayer1'):
-    #batch_norm = BatchNormalization(axis=2)
+    batch_norm = BatchNormalization(axis=2)
 
     #x = batch_norm(x_pl)
-    #dropout = Dropout(0.2)
-    #x = dropout(x_pl)
+    dropout = Dropout(0.1)
+    #x = dropout(x)
     conv1 = Conv1D(round(5*filters/6), kernel_size, padding=padding, activation='relu')
     print('x_pl \t\t', x_pl.get_shape())
     x = conv1(x_pl)
     print('conv1 \t\t', x.get_shape())
 
-    #batch_norm = BatchNormalization(axis=2)
+    batch_norm = BatchNormalization(axis=2)
 
     #x = batch_norm(x)
-    #dropout = Dropout(0.2)
+    dropout = Dropout(0.1)
     #x = dropout(x)
     conv2 = Conv1D(round(4*filters/6), kernel_size, padding=padding, activation='relu')
     x = conv2(x)
     print('conv2 \t\t', x.get_shape())
 
-    #dropout = Dropout(0.2)
+    dropout = Dropout(0.1)
     #x = dropout(x)
     conv3 = Conv1D(round(filters/2), kernel_size, padding=padding, activation='relu')
     x = conv3(x)
@@ -149,7 +146,7 @@ print('Forward pass successful!')
 
 #Training Loop
 
-max_epochs = 50
+max_epochs = 100
 
 
 valid_loss = []
@@ -202,14 +199,14 @@ def trainingLoop():
                     valid_loss.append(np.mean(_valid_loss))
 
 
-                    print("Epoch {} : Train Loss {:6.3f}, Valid loss {:6.3f}".format(
+                    print("Epoch {} : Train Loss {:6.6f}, Valid loss {:6.6f}".format(
                         nb_epochs, train_loss[-1], valid_loss[-1]))
                     sess.run(iterator.initializer, feed_dict={filenames: training_filenames})
 
         except KeyboardInterrupt:
             pass
 
-        save_path = saver.save(sess, "./model.ckpt")
+        save_path = saver.save(sess, "./complex.ckpt")
         print("Model saved");
 
 
