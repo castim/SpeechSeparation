@@ -12,7 +12,7 @@ class LibriSpeechMixer:
     spec_length = 512
     nb_freq = 128
     nb_seg_train = 30596
-    nb_seg_test = 838
+    nb_seg_test = 762
 
     def __init__(self, train = True, nbSamples = float("inf"), nbSpeakers = float("inf"), dataset_built=True, K=10, C=0.1):
         self.K = K

@@ -59,44 +59,55 @@ height, width, nchannels = mixer.nb_freq, mixer.spec_length, 1
 padding = 'same'
 
 filters = mixer.nb_freq*2
-kernel_size = 5
+kernel_size = 3
 
 print('Trace of the tensors shape as it is propagated through the network.')
 print('Layer name \t Output size')
 print('----------------------------')
 
 with tf.variable_scope('convLayer1'):
-    batch_norm = BatchNormalization(axis=2)
+    batch_norm = BatchNormalization()
 
     #x = batch_norm(x_pl)
-    dropout = Dropout(0.1)
-    #x = dropout(x)
-    conv1 = Conv1D(round(5*filters/6), kernel_size, padding=padding, activation='relu')
+    #dropout = Dropout(0.2)
+    #x = dropout(x_pl)
+    conv1 = Conv1D(round(filters), kernel_size, padding=padding, activation='relu')
     print('x_pl \t\t', x_pl.get_shape())
     x = conv1(x_pl)
     print('conv1 \t\t', x.get_shape())
 
-    batch_norm = BatchNormalization(axis=2)
+    batch_norm = BatchNormalization()
 
     #x = batch_norm(x)
-    dropout = Dropout(0.1)
+    dropout = Dropout(0.2)
     #x = dropout(x)
-    conv2 = Conv1D(round(4*filters/6), kernel_size, padding=padding, activation='relu')
+    conv2 = Conv1D(round(filters), kernel_size, padding=padding, activation='relu')
     x = conv2(x)
     print('conv2 \t\t', x.get_shape())
+    
+    batch_norm = BatchNormalization()
 
+    #x = batch_norm(x)
+    
     dropout = Dropout(0.1)
     #x = dropout(x)
-    conv3 = Conv1D(round(filters/2), kernel_size, padding=padding, activation='relu')
+    conv3 = Conv1D(round(filters), kernel_size, padding=padding, activation='relu')
     x = conv3(x)
     print('conv3 \t\t', x.get_shape())
 
-    enc_cell = tf.nn.rnn_cell.GRUCell(mixer.nb_freq*2, activation = tf.tanh)
-    y, enc_state = tf.nn.dynamic_rnn(cell=enc_cell, inputs=x,
+    conv4 = Conv1D(round(filters), kernel_size, padding=padding, activation='relu')
+    x = conv4(x)
+    print('conv4 \t\t', x.get_shape())
+    enc_cell = tf.nn.rnn_cell.GRUCell(mixer.nb_freq*2, activation = tf.nn.relu)
+    x, enc_state = tf.nn.dynamic_rnn(cell=enc_cell, inputs=x,
                                      dtype=tf.float32)
+    
+    convend = Conv1D(round(filters), 1, padding=padding, activation='tanh')
+    y = convend(x)
+    print('convend \t\t', x.get_shape())
+    
     y = y * mixer.K
 print('Model consits of ', utils.num_params(), 'trainable parameters.')
-
 # restricting memory usage, TensorFlow is greedy and will use all memory otherwise
 gpu_opts = tf.GPUOptions(per_process_gpu_memory_fraction=0.99)
 """## Launch TensorBoard, and visualize the TF graph
@@ -119,7 +130,7 @@ with tf.variable_scope('loss'):
                                         (tf.imag(y_target2) - tf.imag(y_pred2))**2)
 
     #L2 regularization
-    """reg_scale = 0.01
+    """reg_scale = 0.00001
     regularize = tf.contrib.layers.l2_regularizer(reg_scale)
     params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
     reg_term = sum([regularize(param) for param in params])
@@ -158,6 +169,8 @@ def trainingLoop():
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_opts)) as sess:
         saver = tf.train.Saver()
         sess.run(iterator.initializer, feed_dict={filenames: training_filenames})
+        #saver.restore(sess, "complex3filtersdropout.ckpt")
+        #print("Model restored.")
         sess.run(tf.global_variables_initializer())
         print('Begin training loop')
 
@@ -206,7 +219,7 @@ def trainingLoop():
         except KeyboardInterrupt:
             pass
 
-        save_path = saver.save(sess, "./complex.ckpt")
+        save_path = saver.save(sess, "./complex3filters5convsamefilters.ckpt")
         print("Model saved");
 
 
