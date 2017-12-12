@@ -66,31 +66,16 @@ print('Layer name \t Output size')
 print('----------------------------')
 
 with tf.variable_scope('convLayer1'):
-    batch_norm = BatchNormalization()
 
-    #x = batch_norm(x_pl)
-    #dropout = Dropout(0.2)
-    #x = dropout(x_pl)
     conv1 = Conv1D(round(filters), kernel_size, padding=padding, activation='relu')
     print('x_pl \t\t', x_pl.get_shape())
     x = conv1(x_pl)
     print('conv1 \t\t', x.get_shape())
 
-    batch_norm = BatchNormalization()
-
-    #x = batch_norm(x)
-    dropout = Dropout(0.2)
-    #x = dropout(x)
     conv2 = Conv1D(round(filters), kernel_size, padding=padding, activation='relu')
     x = conv2(x)
     print('conv2 \t\t', x.get_shape())
     
-    batch_norm = BatchNormalization()
-
-    #x = batch_norm(x)
-    
-    dropout = Dropout(0.1)
-    #x = dropout(x)
     conv3 = Conv1D(round(filters), kernel_size, padding=padding, activation='relu')
     x = conv3(x)
     print('conv3 \t\t', x.get_shape())
