@@ -75,7 +75,7 @@ with tf.variable_scope('convLayer1'):
     conv2 = Conv1D(round(filters), kernel_size, padding=padding, activation='relu')
     x = conv2(x)
     print('conv2 \t\t', x.get_shape())
-    
+
     conv3 = Conv1D(round(filters), kernel_size, padding=padding, activation='relu')
     x = conv3(x)
     print('conv3 \t\t', x.get_shape())
@@ -86,20 +86,15 @@ with tf.variable_scope('convLayer1'):
     enc_cell = tf.nn.rnn_cell.GRUCell(mixer.nb_freq*2, activation = tf.nn.relu)
     x, enc_state = tf.nn.dynamic_rnn(cell=enc_cell, inputs=x,
                                      dtype=tf.float32)
-    
+
     convend = Conv1D(round(filters), 1, padding=padding, activation='tanh')
     y = convend(x)
     print('convend \t\t', x.get_shape())
-    
+
     y = y * mixer.K
 print('Model consits of ', utils.num_params(), 'trainable parameters.')
 # restricting memory usage, TensorFlow is greedy and will use all memory otherwise
 gpu_opts = tf.GPUOptions(per_process_gpu_memory_fraction=0.99)
-"""## Launch TensorBoard, and visualize the TF graph
-with tf.Session(config=tf.ConfigProto(gpu_options=gpu_opts)) as sess:
-    tmp_def = utils.rename_nodes(sess.graph_def, lambda s:"/".join(s.split('_',1)))
-    utils.show_graph(tmp_def)"""
-
 
 with tf.variable_scope('loss'):
     # The loss takes the amplitude of the output into account, in order to avoid taking care of noise
@@ -108,18 +103,11 @@ with tf.variable_scope('loss'):
 
     y_pred1, y_pred2 = mask_to_outputs(x_pl[:, :, :mixer.nb_freq], x_pl[:, :, mixer.nb_freq:],\
                                             y[:, :, :mixer.nb_freq], y[:, :, mixer.nb_freq:], mixer.C, mixer.K)
-    
+
     mean_square_error = tf.reduce_mean((tf.real(y_target1) - tf.real(y_pred1))**2 + \
                                         (tf.real(y_target2) - tf.real(y_pred2))**2 + \
                                         (tf.imag(y_target1) - tf.imag(y_pred1))**2 + \
                                         (tf.imag(y_target2) - tf.imag(y_pred2))**2)
-
-    #L2 regularization
-    """reg_scale = 0.00001
-    regularize = tf.contrib.layers.l2_regularizer(reg_scale)
-    params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-    reg_term = sum([regularize(param) for param in params])
-    mean_square_error += reg_term"""
 
 with tf.variable_scope('training'):
     # defining our optimizer
@@ -168,7 +156,7 @@ def trainingLoop():
 
                 ## Run train op
                 fetches_train = [train_op, mean_square_error]
-                
+
                 _, _loss = sess.run(fetches_train)
                 _train_loss.append(_loss)
 
